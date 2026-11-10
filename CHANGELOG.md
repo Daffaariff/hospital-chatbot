@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/Daffaariff/hospital-chatbot/compare/v0.4.0...v0.4.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* answer comparisons directly instead of leading with caveats ([fb0f21e](https://github.com/Daffaariff/hospital-chatbot/commit/fb0f21e54be1c7d12bd4ae10de2bea6b68925eaa))
+
 ## [0.4.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.3.1...v0.4.0) (2026-11-10)
 
 
