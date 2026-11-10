@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.3.1...v0.4.0) (2026-11-10)
+
+
+### Features
+
+* stream answers over websocket with per-sentence number checks ([c7ec682](https://github.com/Daffaariff/hospital-chatbot/commit/c7ec682f90ad53e2c64e60d7f9285441f7d69a51))
+
 ## [0.3.1](https://github.com/Daffaariff/hospital-chatbot/compare/v0.3.0...v0.3.1) (2026-11-10)
 
 
