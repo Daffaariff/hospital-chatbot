@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.4](https://github.com/Daffaariff/hospital-chatbot/compare/v0.6.3...v0.6.4) (2026-11-10)
+
+
+### Bug Fixes
+
+* route rule-breaking messages by their topic so answers correct them with page facts ([9aadce0](https://github.com/Daffaariff/hospital-chatbot/commit/9aadce0aa95bbdecd31df04e68b3a95dbd99ce45))
+
 ## [0.6.3](https://github.com/Daffaariff/hospital-chatbot/compare/v0.6.2...v0.6.3) (2026-11-10)
 
 
