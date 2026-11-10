@@ -65,21 +65,20 @@ class KnowledgeIndex:
         self.chunks = {c["id"]: Chunk(**c) for c in json.loads((self.data_dir / "chunks.json").read_text())}
         return True
 
-    def search(self, query: str, top_k: int = settings.TOP_K) -> list[Chunk]:
-        d = next(iter(self.dense.query_embed(query)))
-        s = next(iter(self.sparse.query_embed(query)))
-        res = self.client.query_points(
-            COLLECTION,
-            prefetch=[
+    def search(self, *queries: str, top_k: int = settings.TOP_K) -> list[Chunk]:
+        """Hybrid search; several phrasings of one question are fused into a single RRF ranking."""
+        prefetch = []
+        for q in dict.fromkeys(q for q in queries if q):
+            d = next(iter(self.dense.query_embed(q)))
+            s = next(iter(self.sparse.query_embed(q)))
+            prefetch += [
                 models.Prefetch(query=d.tolist(), using="dense", limit=top_k * 3),
                 models.Prefetch(query=models.SparseVector(indices=s.indices.tolist(), values=s.values.tolist()),
                                 using="bm25", limit=top_k * 3),
-            ],
-            query=models.FusionQuery(fusion=models.Fusion.RRF),
-            limit=top_k,
-        )
+            ]
+        res = self.client.query_points(COLLECTION, prefetch=prefetch,
+                                       query=models.FusionQuery(fusion=models.Fusion.RRF), limit=top_k)
         return [self.chunks[p.payload["id"]] for p in res.points]
-
 
 if __name__ == "__main__":
     idx = KnowledgeIndex()

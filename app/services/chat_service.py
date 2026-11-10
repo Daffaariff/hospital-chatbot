@@ -45,16 +45,22 @@ class ChatService:
                                 intent=route.intent, show_lead_form=route.intent in LEAD_INTENTS,
                                 sources=[Source(title="Contact PlacidWay", url=settings.QUOTE_URL)] if route.intent in LEAD_INTENTS else [])
 
-        chunks = self.index.search(route.standalone_query)
+        chunks = self.index.search(route.standalone_query, req.message)
         out, problem = self._grounded_answer(req, history, route, chunks)
-        if problem or not out.answerable:
-            self.store.log_unanswered(req.message, route.standalone_query, problem or "not in content")
-            text = out.answer if (out and not problem and out.answer) else _pick(NOT_FOUND, route.language)
-            return ChatResponse(answer=text, answered=False, intent=route.intent, show_lead_form=True,
-                                sources=[Source(title="Request a free quote", url=settings.QUOTE_URL)])
-
         by_id = {c.id: c for c in chunks}
+        quote = Source(title="Request a free quote", url=settings.QUOTE_URL)
+        if problem:
+            self.store.log_unanswered(req.message, route.standalone_query, problem)
+            return ChatResponse(answer=_pick(NOT_FOUND, route.language), answered=False, intent=route.intent,
+                                show_lead_form=True, sources=[quote])
+
         cited = [by_id[i] for i in valid_citations(out.cited_ids, set(by_id))]
+        if not out.answerable:
+            # NOTE: a "not on our pages" reply may still point to the closest related page
+            self.store.log_unanswered(req.message, route.standalone_query, "not in content")
+            sources = list({c.url: Source(title=c.page_title, url=c.url) for c in cited}.values())
+            return ChatResponse(answer=out.answer or _pick(NOT_FOUND, route.language), answered=False,
+                                intent=route.intent, show_lead_form=True, sources=[*sources, quote])
         answer = out.answer
         if (out.medical_topic or route.intent == "medical_advice") and not self._disclaimer_shown(req):
             answer += "\n\n_" + _pick(DISCLAIMER, route.language) + "_"
@@ -86,12 +92,10 @@ class ChatService:
                                                    messages=messages, schema=AnswerOut, effort="medium")
             except LLMRefusal as e:
                 return None, f"refusal: {e}"
-            if not out.answerable:
-                return out, None
             cited = valid_citations(out.cited_ids, set(by_id))
             # NOTE: amounts the user typed are allowed so "$50 is not correct" passes the check
-            bad = unsupported_amounts(out.answer, [by_id[i].text for i in cited] + [req.message])
-            if not cited:
+            bad = unsupported_amounts(out.answer, [f"{by_id[i].heading}\n{by_id[i].text}" for i in cited] + [req.message])
+            if not cited and (out.answerable or bad):
                 problem = "no valid chunk ids cited"
             elif bad:
                 problem = f"amounts not found in the cited chunks: {sorted(bad)}"

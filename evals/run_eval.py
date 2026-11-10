@@ -1,17 +1,17 @@
-"""Run evals/questions.yaml through the real pipeline and write TEST_RESULTS.md."""
+"""Run evals/questions.yaml against a running bot (POST /api/v1/chat) and write TEST_RESULTS.md."""
 import argparse
+import sys
 import time
 from pathlib import Path
 
+import httpx
 import yaml
 
-from app.adapters.factory import get_llm
-from app.core.config import ROOT, settings
-from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse
-from app.services.chat_service import ChatService
-from app.services.guards import money_amounts
-from app.services.index import KnowledgeIndex
-from app.services.store import Store
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.schemas.chat import ChatResponse  # noqa: E402
+from app.services.guards import money_amounts  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def check(case: dict, r: ChatResponse) -> list[str]:
@@ -38,24 +38,25 @@ def check(case: dict, r: ChatResponse) -> list[str]:
     return fails
 
 
-def main(only: str | None) -> int:
-    index = KnowledgeIndex()
-    assert index.load(), "run `python -m app.ingest` first"
-    svc = ChatService(get_llm(), index, Store(settings.DATA_DIR / "eval.db"))
+def main(url: str, only: str | None) -> int:
+    client = httpx.Client(base_url=url, timeout=120)
+    health = client.get("/api/v1/health").json()
     cases = yaml.safe_load((ROOT / "evals/questions.yaml").read_text())
     cases = [c for c in cases if not only or c["id"].startswith(only)]
     rows, passed = [], 0
     for c in cases:
-        hist = [ChatMessage(role=r, content=t) for r, t in c.get("history", [])]
+        hist = [{"role": r, "content": t} for r, t in c.get("history", [])]
         t0 = time.time()
-        r = svc.answer(ChatRequest(message=c["q"], history=hist))
+        resp = client.post("/api/v1/chat", json={"message": c["q"], "history": hist})
+        resp.raise_for_status()
+        r = ChatResponse(**resp.json())
         fails = check(c, r)
         passed += not fails
         print(f"{'PASS' if not fails else 'FAIL'} {c['id']:24} {time.time() - t0:5.1f}s {'; '.join(fails)}")
         rows.append((c, r, fails, time.time() - t0))
 
-    out = [f"# Test results\n\nProvider: `{settings.LLM_PROVIDER}`, answer model `{settings.ANSWER_MODEL}`, "
-           f"router `{settings.ROUTER_MODEL}`. **{passed}/{len(cases)} passed.** Checks are rule-based "
+    out = [f"# Test results\n\nProvider `{health['llm']}`, answer model `{health['answer_model']}`, run against "
+           f"`{url}`. **{passed}/{len(cases)} passed.** Checks are rule-based "
            f"(amounts, sources, intent), see `evals/questions.yaml`.\n"]
     for c, r, fails, secs in rows:
         hist = "".join(f"> _{role}: {text}_\n>\n" for role, text in c.get("history", []))
@@ -70,5 +71,7 @@ def main(only: str | None) -> int:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
+    ap.add_argument("--url", default="http://localhost:8000", help="base URL of a running bot")
     ap.add_argument("--only", help="run cases whose id starts with this")
-    raise SystemExit(main(ap.parse_args().only))
+    a = ap.parse_args()
+    raise SystemExit(main(a.url, a.only))

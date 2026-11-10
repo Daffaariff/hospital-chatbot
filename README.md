@@ -114,7 +114,7 @@ LLM_PROVIDER=openai OPENAI_API_KEY=... ANSWER_MODEL=gpt-4.1 ROUTER_MODEL=gpt-4.1
 
 ```bash
 pytest                          # offline: parser, promo-price stripping, guards, pipeline with a fake LLM
-python evals/run_eval.py        # real LLM: 17 questions with rule-based checks → TEST_RESULTS.md
+python evals/run_eval.py --url http://localhost:8000   # 17 questions against a running bot → TEST_RESULTS.md
 ```
 
 The eval checks are rules, not an LLM judge: required amounts present, forbidden amounts absent, the expected source

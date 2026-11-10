@@ -18,7 +18,7 @@ class FakeLLM:
 class FakeIndex:
     chunks = {PRICE.id: PRICE}
 
-    def search(self, query, top_k=6):
+    def search(self, *queries, top_k=6):
         return [PRICE]
 
 
@@ -82,3 +82,18 @@ def test_alternate_fixes_history_shape():
     h = [{"role": "assistant", "content": "hi"}, {"role": "user", "content": "a"}, {"role": "user", "content": "b"},
          {"role": "assistant", "content": "c"}, {"role": "user", "content": "dangling"}]
     assert [m["role"] for m in _alternate(h)] == ["user", "assistant"]
+
+
+def test_price_in_section_heading_counts_as_evidence():
+    inpatient = Chunk("P4-C5", "https://x/anal", "package", "Anal Cancer Treatment", "Included in the In-Patient Program ($30,000 USD)",
+                      "- 24/7 medical supervision\n- Full room and board")
+    svc = _svc(_route("info"), [AnswerOut(answerable=True, answer="The In-Patient program costs $30,000 USD.", cited_ids=["P4-C5"], medical_topic=False)])
+    svc.index.chunks = {inpatient.id: inpatient}
+    svc.index.search = lambda *q, top_k=6: [inpatient]
+    assert svc.answer(ChatRequest(message="What is in the in-patient package?")).answered
+
+
+def test_not_found_keeps_related_source():
+    a = AnswerOut(answerable=False, answer="Our pages don't state a recovery time.", cited_ids=["P2-C3"], medical_topic=False)
+    r = _svc(_route("info"), [a]).answer(ChatRequest(message="recovery time?"))
+    assert not r.answered and r.sources[0].url == "https://x/adrenal" and r.show_lead_form
