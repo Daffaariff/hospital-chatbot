@@ -32,7 +32,8 @@
 </head>
 <body>
 <div class="app">
-  <header><h1>PlacidWay Assistant</h1><span>Treatments, clinics and costs, with sources</span></header>
+  <header><h1>PlacidWay Assistant</h1><span>Treatments, clinics and costs, with sources</span>
+    <button class="chip" id="reset" style="margin-left:auto">New chat</button></header>
   <div id="log" aria-live="polite"></div>
   <div class="bar">
     <textarea id="q" rows="2" placeholder="Ask about ITC treatment packages, costs, videos…" aria-label="Your question"></textarea>
@@ -137,6 +138,10 @@ async function ask(text) {
 }
 
 send.onclick = () => ask(q.value);
+document.getElementById("reset").onclick = () => {
+  try { sessionStorage.removeItem("history"); } catch {}
+  location.reload();
+};
 q.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(q.value); } });
 
 for (const m of history) bubble(m.role, m.content);
