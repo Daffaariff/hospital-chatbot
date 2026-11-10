@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlacidWay Assistant</title>
+<style>
+  :root { --bg:#f5f7fa; --card:#fff; --ink:#1d2433; --muted:#667085; --brand:#0b7a75; --user:#e6f4f3; --line:#e4e7ec; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1419; --card:#171d24; --ink:#e6e9ef; --muted:#98a2b3; --brand:#3cc4bc; --user:#16302f; --line:#2a323c; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; background:var(--bg); color:var(--ink); }
+  .app { max-width:760px; margin:0 auto; height:100dvh; display:flex; flex-direction:column; padding:0 16px; }
+  header { padding:16px 0 8px; display:flex; align-items:center; gap:10px; }
+  header h1 { font-size:17px; margin:0; } header span { color:var(--muted); font-size:13px; }
+  #log { flex:1; overflow-y:auto; padding:8px 0; display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:88%; padding:10px 14px; border-radius:14px; background:var(--card); border:1px solid var(--line); white-space:pre-wrap; overflow-wrap:anywhere; }
+  .msg.user { align-self:flex-end; background:var(--user); border-color:transparent; }
+  .msg ul { margin:4px 0; padding-inline-start:20px; white-space:normal; }
+  .src { margin-top:8px; font-size:13px; color:var(--muted); white-space:normal; }
+  .src a { color:var(--brand); display:block; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px; padding:6px 12px; cursor:pointer; font-size:13px; }
+  form.lead { display:grid; gap:6px; margin-top:8px; white-space:normal; }
+  form.lead input { padding:8px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); }
+  .bar { display:flex; gap:8px; padding:12px 0 16px; }
+  .bar textarea { flex:1; resize:none; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink); font:inherit; }
+  button.primary { background:var(--brand); color:#fff; border:0; border-radius:12px; padding:0 18px; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  .typing { color:var(--muted); font-style:italic; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header><h1>PlacidWay Assistant</h1><span>Answers from PlacidWay pages, with sources</span></header>
+  <div id="log" aria-live="polite"></div>
+  <div class="bar">
+    <textarea id="q" rows="2" placeholder="Ask about ITC treatment packages, costs, videos…" aria-label="Your question"></textarea>
+    <button class="primary" id="send">Send</button>
+  </div>
+</div>
+<script>
+const log = document.getElementById("log"), q = document.getElementById("q"), send = document.getElementById("send");
+let history = [];
+try { history = JSON.parse(sessionStorage.getItem("history") || "[]"); } catch {}
+
+const esc = s => s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function md(text) {
+  let h = esc(text).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|\s)_(.+?)_(?=\s|$)/g, "$1<i>$2</i>");
+  return h.replace(/(?:^|\n)((?:[-•] .*(?:\n|$))+)/g, (_, list) =>
+    "<ul>" + list.trim().split("\n").map(l => "<li>" + l.replace(/^[-•] /, "") + "</li>").join("") + "</ul>");
+}
+
+function bubble(role, text, extra) {
+  const d = document.createElement("div");
+  d.className = "msg " + role; d.dir = "auto"; d.innerHTML = md(text);
+  if (extra) d.appendChild(extra);
+  log.appendChild(d); log.scrollTop = log.scrollHeight; return d;
+}
+
+function sourcesEl(sources) {
+  if (!sources?.length) return null;
+  const s = document.createElement("div"); s.className = "src"; s.textContent = "Sources:";
+  for (const x of sources) { const a = document.createElement("a"); a.href = x.url; a.target = "_blank"; a.rel = "noopener"; a.textContent = x.title; s.appendChild(a); }
+  return s;
+}
+
+function leadForm(question) {
+  const f = document.createElement("form"); f.className = "lead";
+  f.innerHTML = `<span>Want a free quote? Leave your details and the PlacidWay team will contact you.</span>
+    <input name="name" placeholder="Name" required maxlength="120"><input name="email" type="email" placeholder="Email" required>
+    <button class="primary" style="padding:8px">Request quote</button>`;
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const body = { name: f.name.value, email: f.email.value, question };
+    const r = await fetch("/api/v1/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    f.innerHTML = r.ok ? "<span>Thanks! The PlacidWay team will be in touch.</span>" : "<span>Sorry, that didn't work. Please check your email address.</span>";
+  };
+  return f;
+}
+
+async function ask(text) {
+  text = text.trim(); if (!text) return;
+  bubble("user", text); q.value = ""; send.disabled = true;
+  const t = bubble("assistant typing", "Searching our pages…");
+  try {
+    const r = await fetch("/api/v1/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, history }) });
+    const data = await r.json();
+    t.remove();
+    if (!r.ok) throw new Error(data.detail || "error");
+    const extra = document.createElement("div");
+    const s = sourcesEl(data.sources); if (s) extra.appendChild(s);
+    if (data.show_lead_form) extra.appendChild(leadForm(text));
+    bubble("assistant", data.answer, extra);
+    history.push({ role: "user", content: text }, { role: "assistant", content: data.answer });
+    history = history.slice(-20);
+    try { sessionStorage.setItem("history", JSON.stringify(history)); } catch {}
+  } catch (e) {
+    t.remove(); bubble("assistant", typeof e.message === "string" && e.message !== "error" ? e.message : "Sorry, something went wrong. Please try again.");
+  } finally { send.disabled = false; q.focus(); }
+}
+
+send.onclick = () => ask(q.value);
+q.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(q.value); } });
+
+for (const m of history) bubble(m.role, m.content);
+if (!history.length) {
+  bubble("assistant", "Hi! I can answer questions about ITC Immunity Therapy Center in Tijuana: treatment packages, costs, what's included, travel, and videos. Ask in any language.");
+  const chips = document.createElement("div"); chips.className = "chips";
+  for (const ex of ["How much does adrenal cancer treatment cost in Mexico?", "What is included in the in-patient anal cancer package?", "Is alternative medicine cheaper in Turkey or Mexico?", "¿Cuánto cuesta el tratamiento ambulatorio?"]) {
+    const b = document.createElement("button"); b.className = "chip"; b.textContent = ex; b.onclick = () => ask(ex); chips.appendChild(b);
+  }
+  log.appendChild(chips);
+}
+</script>
+</body>
+</html>
