@@ -20,6 +20,9 @@ jobs:
 
   release-please:
     runs-on: ubuntu-24.04
+    concurrency:
+      group: release-please
+      cancel-in-progress: false
     steps:
       - id: rp
         uses: googleapis/release-please-action@v5

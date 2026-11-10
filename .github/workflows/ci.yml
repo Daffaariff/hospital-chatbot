@@ -3,6 +3,8 @@ on:
   pull_request:
 jobs:
   test:
+    # NOTE: release PRs only touch CHANGELOG/version and are auto-merged within seconds
+    if: github.head_ref != 'release-please--branches--main'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
