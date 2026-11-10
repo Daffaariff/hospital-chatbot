@@ -66,7 +66,7 @@ def split_by_headings(root: Tag, drop_headings: list[str]) -> list[Section]:
     for node in root.descendants:
         if not isinstance(node, Tag):
             continue
-        if node.name in {"h1", "h2", "h3"}:
+        if node.name in {"h1", "h2", "h3", "summary"}:  # NOTE: <summary> holds FAQ questions in <details>
             flush()
             heading, buf = clean(node.get_text(" ", strip=True)), []
         elif node.name in {"p", "li", "table", "dd"}:

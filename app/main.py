@@ -20,10 +20,9 @@ log = get_logger("main")
 async def lifespan(app: FastAPI):
     setup_logging()
     index = KnowledgeIndex()
-    if not index.load():
-        # NOTE: build from the committed snapshot; live crawling is an explicit refresh (Cloudflare blocks datacenter IPs)
-        log.info("no index found, building from snapshot/")
-        run_ingest(index=index, offline=True)
+    # NOTE: sync with the committed snapshot on every start; re-embeds only if parsed content changed.
+    # Live crawling is an explicit refresh (Cloudflare blocks datacenter IPs).
+    run_ingest(index=index, offline=True)
     store = Store()
     app.state.index, app.state.store = index, store
     app.state.chat = ChatService(get_llm(), index, store)

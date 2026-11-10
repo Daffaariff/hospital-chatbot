@@ -93,3 +93,9 @@
   type: Unknown fact
   q: What is the success rate of ITC's adrenal cancer treatment?
   forbid_any: ["%"]
+- id: x-faq
+  type: FAQ on comparison page
+  q: Does health insurance cover alternative medicine abroad?
+  answered: true
+  source: search-medical-pricings
+  any_of: [insurance]
