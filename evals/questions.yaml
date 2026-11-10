@@ -169,3 +169,8 @@
   q: Do you have any hospital in Indonesia?
   answered: false
   lead_form: true
+- id: x-baseline-indonesian
+  type: Comparison baseline (Indonesian)
+  q: Apakah harga pengobatan Ayurveda lebih murah di luar negeri?
+  any_of: [Barat, Western, negara asal]
+  forbid_start: [Ya, Yes]

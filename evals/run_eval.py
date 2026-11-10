@@ -43,6 +43,8 @@ def check(case: dict, r: ChatResponse) -> list[str]:
         fails.append(f"intent={r.intent}")
     if case.get("lead_form") and not r.show_lead_form:
         fails.append("no lead form")
+    if any(r.answer.lstrip().lower().startswith(w.lower()) for w in case.get("forbid_start", [])):
+        fails.append(f"starts with one of {case['forbid_start']}")
     if case.get("disclaimer") and "not medical advice" not in text:
         fails.append("no medical disclaimer")
     if case.get("max_words") and len(r.answer.split()) > case["max_words"]:
