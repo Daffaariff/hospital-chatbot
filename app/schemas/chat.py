@@ -21,7 +21,7 @@ class AnswerOut(BaseModel):
     # NOTE: field order is generation order; citations come before the streamed answer text
     answerable: bool = Field(description="True only if the context contains the facts needed to answer")
     cited_ids: list[str] = Field(description="Ids of the context chunks the answer uses")
-    medical_topic: bool = Field(description="True if the answer discusses treatments, risks, eligibility or health outcomes")
+    medical_topic: bool = Field(description="True if the answer discusses health effects, risks, eligibility, suitability or outcomes; false for program logistics such as duration, schedule, prices or what a package includes")
     answer: str
     followups: list[str] = Field(description="2-3 short follow-up questions this user is likely to ask next, answerable from the context")
 
