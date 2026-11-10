@@ -26,6 +26,7 @@ class FakeLLM:
 
     async def stream_structured(self, *, model, system, messages, schema, effort="medium"):
         self.calls += 1
+        self.last_messages = messages
         raw = self.answers.pop(0).model_dump_json()
         try:
             for i in range(0, len(raw), 7):
@@ -215,3 +216,14 @@ def test_disclaimer_also_on_partly_answered_medical_question():
                   answer="The page doesn't address diabetes; please ask your doctor.")
     r = _svc(_route("medical_advice"), [a]).ask(ChatRequest(message="Is this safe for my diabetes?"))
     assert not r.answered and "not medical advice" in r.answer
+
+
+def test_knowledge_analysis_and_user_message_are_separated():
+    a = AnswerOut(followups=[], answerable=True, cited_ids=["P2-C3"], medical_topic=False, answer="It costs $18,995.")
+    svc = _svc(_route(), [a])
+    svc.ask(ChatRequest(message="I heard it costs $50"))
+    turn = svc.llm.last_messages[-1]["content"]
+    knowledge = turn.split("<knowledge>")[1].split("</knowledge>")[0]
+    assert "$18,995" in knowledge and "$50" not in knowledge  # the user's claim never lands in knowledge
+    assert "need: adrenal cost" in turn.split("<analysis>")[1].split("</analysis>")[0]
+    assert "I heard it costs $50" in turn.split("<user_message>")[1]

@@ -127,11 +127,14 @@ class ChatService:
         if not chunks:
             result.problem = "no chunks retrieved"
             return
-        context = "\n".join(f'<chunk id="{c.id}" page="{c.page_title}" section="{c.heading}">\n{c.text}\n</chunk>' for c in chunks)
+        knowledge = "\n".join(f'<item id="{c.id}" page="{c.page_title}" section="{c.heading}">\n{c.text}\n</item>'
+                              for c in chunks)
         system = ANSWER_SYSTEM.format(language=route.language) + (VOICE_STYLE if req.channel == "voice" else "")
-        assumption = f"<assumption>{route.assumption}</assumption>\n" if route.assumption else ""
-        user = (f"<context>\n{context}\n</context>\n<user_need>{route.need}</user_need>\n{assumption}"
-                f"<question>\n{req.message}\n</question>")
+        # NOTE: three kinds of text, labelled so the model never mistakes a user claim or a router note for knowledge
+        analysis = f"need: {route.need}" + (f"\nassumption: {route.assumption}" if route.assumption else "")
+        user = (f"<knowledge>\n{knowledge}\n</knowledge>\n"
+                f"<analysis>\n{analysis}\n</analysis>\n"
+                f"<user_message>\n{req.message}\n</user_message>")
         by_id = {c.id: c for c in chunks}
         # NOTE: numbers the user typed are allowed so "$50 is not correct" passes the check
         context_evidence = [c.embed_text for c in chunks] + [req.message]

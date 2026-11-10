@@ -173,4 +173,4 @@
   type: Comparison baseline (Indonesian)
   q: Apakah harga pengobatan Ayurveda lebih murah di luar negeri?
   any_of: [Barat, Western, negara asal]
-  forbid_start: [Ya, Yes]
+  forbid_start: ["Ya", "Yes"]
