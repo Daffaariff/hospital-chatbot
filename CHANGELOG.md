@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/Daffaariff/hospital-chatbot/compare/v0.2.0...v0.2.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* hold requests in caddy during app restarts ([ceba1fb](https://github.com/Daffaariff/hospital-chatbot/commit/ceba1fb75d1d4d9c0560dc27d1b28ceabb61bb65))
+
 ## [0.2.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.1.0...v0.2.0) (2026-11-10)
 
 
