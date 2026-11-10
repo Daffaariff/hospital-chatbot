@@ -98,7 +98,7 @@ class ChatService:
         sources = list({c.url: Source(title=c.page_title, url=c.url) for c in cited}.values())
         answer = self._with_disclaimer(req, route, out, out.answer or _pick(NOT_FOUND, route.language))
         if not out.answerable:
-            # NOTE: a "not on our pages" reply may still point to the closest related page
+            # NOTE: an "I don't have that" reply may still point to the closest related page
             self.store.log_unanswered(req.message, route.standalone_query, "not in content")
             return ChatResponse(answer=answer, answered=False, intent=route.intent, show_lead_form=True,
                                 sources=[*sources, quote], followups=out.followups[:3])

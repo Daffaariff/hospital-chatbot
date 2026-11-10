@@ -164,3 +164,8 @@
   type: Lazy, closing ("ok thanks")
   q: ok thanks
   intent: greeting
+- id: x-not-listed-country
+  type: Not in knowledge (country)
+  q: Do you have any hospital in Indonesia?
+  answered: false
+  lead_form: true

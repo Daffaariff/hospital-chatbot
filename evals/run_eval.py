@@ -15,8 +15,15 @@ from app.services.guards import money_amounts  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 
 
+# NOTE: the assistant speaks from its own knowledge; talking about "the pages" or "context" is a voice regression
+META_PHRASES = ["our pages", "these pages", "the pages", "the page", "the context", "the sources", "nuestras páginas",
+                "صفحاتنا"]
+
+
 def check(case: dict, r: ChatResponse) -> list[str]:
     fails, text, urls = [], r.answer.lower(), " ".join(s.url for s in r.sources)
+    if meta := [p for p in META_PHRASES if p in text]:
+        fails.append(f"talks about its sources: {meta}")
     amounts = money_amounts(r.answer)
     if "answered" in case and r.answered != case["answered"]:
         fails.append(f"answered={r.answered}")
