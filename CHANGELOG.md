@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.3](https://github.com/Daffaariff/hospital-chatbot/compare/v0.6.2...v0.6.3) (2026-11-10)
+
+
+### Bug Fixes
+
+* skip the medical disclaimer on plain price answers; injection eval checks refusal ([c80ea52](https://github.com/Daffaariff/hospital-chatbot/commit/c80ea5239e003cf5431d31c9bd060045d957b71a))
+
 ## [0.6.2](https://github.com/Daffaariff/hospital-chatbot/compare/v0.6.1...v0.6.2) (2026-11-10)
 
 
