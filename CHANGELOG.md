@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/Daffaariff/hospital-chatbot/compare/v0.3.0...v0.3.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* per-claim verdicts and page titles for the claim check ([8ec6cd2](https://github.com/Daffaariff/hospital-chatbot/commit/8ec6cd22ffb2fd2303cc496b1b3f3a5937ecb656))
+
 ## [0.3.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.2.2...v0.3.0) (2026-11-10)
 
 
