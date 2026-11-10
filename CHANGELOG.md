@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.2.2...v0.3.0) (2026-11-10)
+
+
+### Features
+
+* check all numeric facts in code and add claim-level grounding check ([898e503](https://github.com/Daffaariff/hospital-chatbot/commit/898e503e77a5f073fe6cc5e6c100bee3b5230d9b))
+
 ## [0.2.2](https://github.com/Daffaariff/hospital-chatbot/compare/v0.2.1...v0.2.2) (2026-11-10)
 
 
