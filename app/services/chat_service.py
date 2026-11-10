@@ -7,8 +7,10 @@ from app.adapters.protocols import LLMPort, LLMRefusal
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.ingest.chunker import Chunk
-from app.prompts.system_prompts import (ANSWER_SYSTEM, CLAIM_CHECK_SYSTEM, DISCLAIMER, NOT_FOUND, PLACIDWAY_FACTS,
-                                       RETRY_NOTE, ROUTER_SYSTEM, VOICE_STYLE)
+from app.core.constants import LEAD_INTENTS, NO_RETRIEVAL_INTENTS, PRICE_INTENTS
+from app.core.messages import DISCLAIMER, NOT_FOUND, SOURCE_CONTACT, SOURCE_QUOTE, STATUS_CHECKING, STATUS_SEARCHING
+from app.prompts.system_prompts import (ANSWER_SYSTEM, CLAIM_CHECK_SYSTEM, PLACIDWAY_FACTS, RETRY_NOTE, ROUTER_SYSTEM,
+                                       VOICE_STYLE)
 from app.schemas.chat import AnswerOut, ChatRequest, ChatResponse, ClaimCheck, RouterOut, Source
 from app.services.guards import unsupported_facts, valid_citations
 from app.services.index import KnowledgeIndex
@@ -16,8 +18,6 @@ from app.services.store import Store
 from app.services.streaming import JsonFieldStream, SentenceBuffer
 
 log = get_logger("services.chat")
-NO_RETRIEVAL = {"greeting", "booking", "quote_request", "out_of_scope"}
-LEAD_INTENTS = {"booking", "quote_request"}
 
 # Events: {"type": "status", "text"} · {"type": "delta", "text"} · {"type": "reset"} · {"type": "final", "response"}
 Event = dict
@@ -56,14 +56,14 @@ class ChatService:
         route = self._route(history, req.message)
         log.info(f"intent={route.intent} lang={route.language} query={route.standalone_query!r}")
 
-        if route.intent in NO_RETRIEVAL:
+        if route.intent in NO_RETRIEVAL_INTENTS:
             lead = route.intent in LEAD_INTENTS
             yield {"type": "final", "response": ChatResponse(
                 answer=route.direct_reply or _pick(NOT_FOUND, route.language), answered=True, intent=route.intent,
-                show_lead_form=lead, sources=[Source(title="Contact PlacidWay", url=settings.QUOTE_URL)] if lead else [])}
+                show_lead_form=lead, sources=[Source(title=SOURCE_CONTACT, url=settings.QUOTE_URL)] if lead else [])}
             return
 
-        yield {"type": "status", "text": "Searching our pages…"}
+        yield {"type": "status", "text": STATUS_SEARCHING}
         chunks = self.index.search(route.standalone_query, req.message)
         out, problem = yield from self._grounded_answer(req, history, route, chunks)
         yield {"type": "final", "response": self._finish(req, route, chunks, out, problem)}
@@ -71,7 +71,7 @@ class ChatService:
     def _finish(self, req: ChatRequest, route: RouterOut, chunks: list[Chunk], out: AnswerOut | None,
                 problem: str | None) -> ChatResponse:
         by_id = {c.id: c for c in chunks}
-        quote = Source(title="Request a free quote", url=settings.QUOTE_URL)
+        quote = Source(title=SOURCE_QUOTE, url=settings.QUOTE_URL)
         if problem:
             self.store.log_unanswered(req.message, route.standalone_query, problem)
             return ChatResponse(answer=_pick(NOT_FOUND, route.language), answered=False, intent=route.intent,
@@ -87,7 +87,7 @@ class ChatService:
         if (out.medical_topic or route.intent == "medical_advice") and not self._disclaimer_shown(req):
             answer += "\n\n_" + _pick(DISCLAIMER, route.language) + "_"
         return ChatResponse(answer=answer, sources=sources, answered=True, intent=route.intent,
-                            show_lead_form=route.intent in {"price", "comparison"})
+                            show_lead_form=route.intent in PRICE_INTENTS)
 
     def _route(self, history: list[dict], message: str) -> RouterOut:
         convo = "\n".join(f"{m['role']}: {m['content'][:1500]}" for m in history)
@@ -144,7 +144,7 @@ class ChatService:
                 except ValidationError:
                     problem = "model output was not valid JSON"
             if not problem:
-                yield {"type": "status", "text": "Checking the answer…"}
+                yield {"type": "status", "text": STATUS_CHECKING}
                 problem = self._check(req, out, by_id)
             if not problem:
                 return out, None

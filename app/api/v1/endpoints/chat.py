@@ -7,12 +7,12 @@ from pydantic import ValidationError
 from app.adapters.protocols import LLMRefusal
 from app.api.deps import get_chat
 from app.core.logging import get_logger
+from app.core.messages import INVALID_MESSAGE, REFUSED, UNAVAILABLE
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.chat_service import ChatService
 
 router = APIRouter()
 log = get_logger("api.chat")
-UNAVAILABLE = "The assistant is temporarily unavailable. Please try again."
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -20,7 +20,7 @@ def chat(req: ChatRequest, svc: ChatService = Depends(get_chat)) -> ChatResponse
     try:
         return svc.answer(req)
     except LLMRefusal:
-        raise HTTPException(422, "The assistant can't help with that request.")
+        raise HTTPException(422, REFUSED)
     except Exception as e:
         log.exception(f"chat failed: {e}")
         raise HTTPException(502, UNAVAILABLE)
@@ -37,7 +37,7 @@ async def chat_ws(ws: WebSocket):
             try:
                 req = ChatRequest(**await ws.receive_json())
             except (ValidationError, ValueError, TypeError):
-                await ws.send_json({"type": "error", "text": "Invalid message."})
+                await ws.send_json({"type": "error", "text": INVALID_MESSAGE})
                 continue
             queue: asyncio.Queue = asyncio.Queue()
 

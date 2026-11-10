@@ -1,9 +1,8 @@
 """Sections -> retrieval chunks with stable, readable ids."""
 from dataclasses import asdict, dataclass
 
+from app.core.constants import CHUNK_MAX_CHARS as MAX_CHARS
 from app.ingest.parser import ParsedPage
-
-MAX_CHARS = 1500
 
 
 @dataclass

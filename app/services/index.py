@@ -7,11 +7,11 @@ from fastembed import SparseTextEmbedding, TextEmbedding
 from qdrant_client import QdrantClient, models
 
 from app.core.config import settings
+from app.core.constants import COLLECTION
 from app.core.logging import get_logger
 from app.ingest.chunker import Chunk
 
 log = get_logger("services.index")
-COLLECTION = "placidway"
 
 
 class KnowledgeIndex:

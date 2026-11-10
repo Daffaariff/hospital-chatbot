@@ -92,8 +92,8 @@ official SDK with structured outputs, prompt caching and server-side refusal fal
 app/
   adapters/     LLM port + Anthropic / OpenAI-compatible adapters
   api/v1/       chat, leads, admin (refresh, unanswered, leads), health
-  core/         settings, logging, API-key auth
-  ingest/       crawler → parser → chunker  (python -m app.ingest)
+  core/         settings, constants, user-facing messages, logging, API-key auth
+  ingest/       crawler → parser → chunker  (python -m app.ingest); site_rules.py = PlacidWay selectors
   prompts/      router + answer prompts
   schemas/      request/response and LLM output models
   services/     index, chat pipeline, guards, store
