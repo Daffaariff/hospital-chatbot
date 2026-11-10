@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     METADATA_FILTERS: bool = True
     RERANK_MODEL: str = "jinaai/jina-reranker-v1-turbo-en"  # empty disables reranking
     RERANK_CANDIDATES: int = 20
+    RERANK_MAX_CHARS: int = 4000
+    RERANK_THREADS: int = 1  # one core per rerank, so parallel requests queue instead of thrashing a small CPU
     HISTORY_TURNS: int = 6
 
     USER_AGENT: str = "PlacidWayKnowledgeBot/0.1 (+https://github.com/Daffaariff/hospital-chatbot)"

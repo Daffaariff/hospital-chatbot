@@ -26,7 +26,7 @@ class KnowledgeIndex:
         self.client = QdrantClient(url=url) if url else QdrantClient(path=str(data_dir / "qdrant"))
         self.dense = TextEmbedding(settings.EMBEDDING_MODEL)
         self.sparse = SparseTextEmbedding(settings.SPARSE_MODEL)
-        self.reranker = TextCrossEncoder(rerank_model) if rerank_model else None
+        self.reranker = TextCrossEncoder(rerank_model, threads=settings.RERANK_THREADS) if rerank_model else None
         # NOTE: local-mode Qdrant isn't documented as thread-safe; its calls take milliseconds, so serialise them
         self.lock = threading.RLock()
 
@@ -137,7 +137,8 @@ class KnowledgeIndex:
             return self.search(q, raw, hints=analyze(q), top_k=top_k)
         # NOTE: the raw message mixes all parts, so each sub-query searches on its own wording
         per_query = max(3, top_k // len(queries) + 1)
-        lists = [self.search(q, hints=analyze(q), top_k=per_query) for q in queries]
+        # NOTE: only the main need is reranked; the rest use the fused ranking (a rerank costs ~0.6 s on 2 vCPUs)
+        lists = [self.search(q, hints=analyze(q), top_k=per_query, rerank=i == 0) for i, q in enumerate(queries)]
         merged, seen = [], set()
         for rank in range(per_query):
             for results in lists:
@@ -148,7 +149,7 @@ class KnowledgeIndex:
 
     def _blend_rerank(self, query: str, chunks: list[Chunk], k: int = 10) -> list[Chunk]:
         """RRF of the fused (filter-aware) rank and the cross-encoder rank, so the reranker can't erase filter gains."""
-        scores = list(self.reranker.rerank(query, [c.embed_text for c in chunks]))
+        scores = list(self.reranker.rerank(query, [c.embed_text[:settings.RERANK_MAX_CHARS] for c in chunks]))
         by_score = sorted(range(len(chunks)), key=lambda i: -scores[i])
         rerank_rank = {i: r for r, i in enumerate(by_score, 1)}
         blended = sorted(range(len(chunks)), key=lambda i: -(1 / (k + i + 1) + 1 / (k + rerank_rank[i])))

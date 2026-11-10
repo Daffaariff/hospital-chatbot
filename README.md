@@ -76,6 +76,12 @@ already give the structure, and embeddings run on CPU in seconds.
 | + metadata filters | 1.0 / 1.0 | 0.889 / 0.917 |
 | + cross-encoder rerank, blended | **1.0 / 1.0** | **0.947 / 0.944** |
 
+**Deployed without the reranker.** With filters alone, recall@6 is already 1.0: the answer model always receives the
+right chunk in its context, so reranking only reorders chunks it sees anyway. On the 2-vCPU server the reranker costs
+~2.3 s per search (vs 0.26 s on a laptop), and every cheaper setting tried (10 candidates, truncated text) fell back
+to filters-only quality on the hard set. So the server runs with `RERANK_MODEL=` empty; on a 4+ core box, set it
+to `jinaai/jina-reranker-v1-turbo-en`. Multi-part questions only rerank their main need either way.
+
 Two findings shaped the design. Sorting purely by reranker score erased the filter gains (hard MRR fell to 0.83), so
 the reranker's rank is blended with the fused rank instead. And a separate "no videos" ranking diluted the filters,
 so the video demotion is folded into the filtered rankings. Rerankers compared: MiniLM-L6/L12, jina tiny/turbo;
