@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/Daffaariff/hospital-chatbot/compare/v0.6.0...v0.6.1) (2026-11-10)
+
+
+### Performance Improvements
+
+* cheaper multi-part reranking, run without reranker on small servers ([1431f67](https://github.com/Daffaariff/hospital-chatbot/commit/1431f67cd696c69ef0d25dc380c593dd47bfd742))
+
 ## [0.6.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.5.2...v0.6.0) (2026-11-10)
 
 
