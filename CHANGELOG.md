@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/Daffaariff/hospital-chatbot/compare/v0.2.1...v0.2.2) (2026-11-10)
+
+
+### Bug Fixes
+
+* keep FAQ questions, detect heading changes, resync index on start ([0713029](https://github.com/Daffaariff/hospital-chatbot/commit/0713029abf84ed606d2994ad52567f51fc495b96))
+
 ## [0.2.1](https://github.com/Daffaariff/hospital-chatbot/compare/v0.2.0...v0.2.1) (2026-11-10)
 
 
