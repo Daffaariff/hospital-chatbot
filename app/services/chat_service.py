@@ -167,7 +167,8 @@ class ChatService:
             return "no valid chunk ids cited"
         if bad:
             return f"numbers not found in the cited chunks: {bad}"
-        if cited and (claims := self._unsupported_claims(out.answer, evidence)):
+        # NOTE: the claim check sees everything the answer model saw; a fact from an uncited retrieved chunk is still grounded
+        if cited and (claims := self._unsupported_claims(out.answer, [c.embed_text for c in by_id.values()])):
             return f"claims not supported by the cited chunks: {claims}"
         return None
 

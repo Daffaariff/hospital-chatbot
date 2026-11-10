@@ -82,10 +82,13 @@ $1000, "the $110 option is cheaper" is supported), and corrections of the user's
 different figure ("it is not $50; the page lists $18,995").
 
 Skip, do not extract: advice to consult a doctor, suggestions to request a quote or contact PlacidWay, statements \
-that something is not on the pages, remarks about where a fact comes from, disclaimers and greetings."""
+that something is not on the pages, remarks about where a fact comes from, general caveats (results or costs vary \
+by person, clinic or therapy), disclaimers and greetings."""
 
 # NOTE: given to the claim check as a source so standard calls to action are never flagged
-PLACIDWAY_FACTS = "PlacidWay: patients can request a free, personalised quote and contact PlacidWay to arrange treatment."
+PLACIDWAY_FACTS = ("PlacidWay: patients can request a free, personalised quote and contact PlacidWay to arrange treatment. "
+                   "The adenocarcinoma, adrenal and anal cancer packages are offered by ITC (Immunity Therapy Center) "
+                   "in Tijuana, Mexico.")
 
 VOICE_STYLE = "\nThis answer will be spoken aloud: 2-4 short sentences, no lists, no markdown, say amounts naturally."
 

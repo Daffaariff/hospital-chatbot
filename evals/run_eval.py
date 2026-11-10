@@ -1,5 +1,6 @@
 """Run evals/questions.yaml against a running bot (POST /api/v1/chat) and write TEST_RESULTS.md."""
 import argparse
+import asyncio
 import sys
 import time
 from pathlib import Path
@@ -38,22 +39,28 @@ def check(case: dict, r: ChatResponse) -> list[str]:
     return fails
 
 
-def main(url: str, only: str | None) -> int:
-    client = httpx.Client(base_url=url, timeout=120)
-    health = client.get("/api/v1/health").json()
+async def run_case(client: httpx.AsyncClient, limit: asyncio.Semaphore, case: dict) -> tuple[dict, ChatResponse, list[str], float]:
+    hist = [{"role": r, "content": t} for r, t in case.get("history", [])]
+    async with limit:
+        t0 = time.time()
+        resp = await client.post("/api/v1/chat", json={"message": case["q"], "history": hist})
+        secs = time.time() - t0
+    resp.raise_for_status()
+    r = ChatResponse(**resp.json())
+    return case, r, check(case, r), secs
+
+
+async def main(url: str, only: str | None, workers: int) -> int:
     cases = yaml.safe_load((ROOT / "evals/questions.yaml").read_text())
     cases = [c for c in cases if not only or c["id"].startswith(only)]
-    rows, passed = [], 0
-    for c in cases:
-        hist = [{"role": r, "content": t} for r, t in c.get("history", [])]
-        t0 = time.time()
-        resp = client.post("/api/v1/chat", json={"message": c["q"], "history": hist})
-        resp.raise_for_status()
-        r = ChatResponse(**resp.json())
-        fails = check(c, r)
-        passed += not fails
-        print(f"{'PASS' if not fails else 'FAIL'} {c['id']:24} {time.time() - t0:5.1f}s {'; '.join(fails)}")
-        rows.append((c, r, fails, time.time() - t0))
+    limit = asyncio.Semaphore(workers)
+    async with httpx.AsyncClient(base_url=url, timeout=180) as client:
+        health = (await client.get("/api/v1/health")).json()
+        # NOTE: cases are independent; gather keeps the YAML order in the results
+        rows = await asyncio.gather(*(run_case(client, limit, c) for c in cases))
+    passed = sum(not fails for _, _, fails, _ in rows)
+    for c, _, fails, secs in rows:
+        print(f"{'PASS' if not fails else 'FAIL'} {c['id']:24} {secs:5.1f}s {'; '.join(fails)}")
 
     out = [f"# Test results\n\nProvider `{health['llm']}`, answer model `{health['answer_model']}`, run against "
            f"`{url}`. **{passed}/{len(cases)} passed.** Checks are rule-based "
@@ -73,5 +80,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", default="http://localhost:8000", help="base URL of a running bot")
     ap.add_argument("--only", help="run cases whose id starts with this")
+    ap.add_argument("--workers", type=int, default=6, help="questions run at the same time")
     a = ap.parse_args()
-    raise SystemExit(main(a.url, a.only))
+    raise SystemExit(asyncio.run(main(a.url, a.only, a.workers)))

@@ -1,6 +1,7 @@
 """Hybrid (dense + BM25) index on Qdrant local mode, fused with RRF."""
 import json
 import shutil
+import threading
 from pathlib import Path
 
 from fastembed import SparseTextEmbedding, TextEmbedding
@@ -21,6 +22,8 @@ class KnowledgeIndex:
         self.sparse = SparseTextEmbedding(settings.SPARSE_MODEL)
         self.client: QdrantClient | None = None
         self.chunks: dict[str, Chunk] = {}
+        # NOTE: local-mode Qdrant isn't documented as thread-safe; searches take milliseconds, so serialise them
+        self.lock = threading.RLock()
 
     @property
     def _db_path(self) -> Path:
@@ -50,19 +53,21 @@ class KnowledgeIndex:
             for i, (c, d, s) in enumerate(zip(chunks, dense, sparse))
         ])
         client.close()
-        if self.client:
-            self.client.close()
-        shutil.rmtree(self._db_path, ignore_errors=True)
-        tmp.rename(self._db_path)
-        (self.data_dir / "chunks.json").write_text(json.dumps([c.to_dict() for c in chunks], indent=1))
-        log.info(f"index built: {len(chunks)} chunks")
-        self.load()
+        with self.lock:  # NOTE: no search may run against the old client while it is swapped out
+            if self.client:
+                self.client.close()
+            shutil.rmtree(self._db_path, ignore_errors=True)
+            tmp.rename(self._db_path)
+            (self.data_dir / "chunks.json").write_text(json.dumps([c.to_dict() for c in chunks], indent=1))
+            log.info(f"index built: {len(chunks)} chunks")
+            self.load()
 
     def load(self) -> bool:
         if not (self.data_dir / "chunks.json").exists():
             return False
-        self.client = QdrantClient(path=str(self._db_path))
-        self.chunks = {c["id"]: Chunk(**c) for c in json.loads((self.data_dir / "chunks.json").read_text())}
+        with self.lock:
+            self.client = QdrantClient(path=str(self._db_path))
+            self.chunks = {c["id"]: Chunk(**c) for c in json.loads((self.data_dir / "chunks.json").read_text())}
         return True
 
     def search(self, *queries: str, top_k: int = settings.TOP_K) -> list[Chunk]:
@@ -76,8 +81,9 @@ class KnowledgeIndex:
                 models.Prefetch(query=models.SparseVector(indices=s.indices.tolist(), values=s.values.tolist()),
                                 using="bm25", limit=top_k * 3),
             ]
-        res = self.client.query_points(COLLECTION, prefetch=prefetch,
-                                       query=models.FusionQuery(fusion=models.Fusion.RRF), limit=top_k)
+        with self.lock:
+            res = self.client.query_points(COLLECTION, prefetch=prefetch,
+                                           query=models.FusionQuery(fusion=models.Fusion.RRF), limit=top_k)
         return [self.chunks[p.payload["id"]] for p in res.points]
 
 if __name__ == "__main__":
