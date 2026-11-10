@@ -76,7 +76,10 @@ each starts with its page title and section heading, which count as source text)
 
 Extract the specific factual claims in the <answer>: prices, numbers, durations, what is included or excluded, \
 clinic/doctor/therapy names, accreditations, locations, medical, success or safety claims. For each, set \
-supported=true if the sources state or directly imply it (paraphrases and translations count), false otherwise.
+supported=true if the sources state or directly imply it, false otherwise. Directly implied includes \
+paraphrases and translations, conclusions that follow from figures in the sources (if the sources list $110 and \
+$1000, "the $110 option is cheaper" is supported), and corrections of the user's claim when the sources give a \
+different figure ("it is not $50; the page lists $18,995").
 
 Skip, do not extract: advice to consult a doctor, suggestions to request a quote or contact PlacidWay, statements \
 that something is not on the pages, remarks about where a fact comes from, disclaimers and greetings."""

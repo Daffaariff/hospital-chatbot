@@ -179,7 +179,7 @@ class ChatService:
         try:
             verdict = self.llm.complete_structured(model=settings.CHECK_MODEL, system=CLAIM_CHECK_SYSTEM, schema=ClaimCheck,
                                                    messages=[{"role": "user", "content": f"<sources>\n{sources}\n</sources>\n<answer>\n{answer}\n</answer>"}],
-                                                   effort="low")
+                                                   effort="medium")
         except Exception as e:
             # NOTE: fail open: numbers and citations are already verified in code at this point
             log.warning(f"claim check unavailable, skipping: {e}")
