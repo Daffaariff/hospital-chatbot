@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/Daffaariff/hospital-chatbot/compare/v0.5.0...v0.5.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* let the claim check accept direct inferences and corrections ([9036d65](https://github.com/Daffaariff/hospital-chatbot/commit/9036d65a0052d8b6686309638b548db611c8afe8))
+
 ## [0.5.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.4.1...v0.5.0) (2026-11-10)
 
 
