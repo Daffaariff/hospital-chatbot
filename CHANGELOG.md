@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.6.6...v0.7.0) (2026-11-10)
+
+
+### Features
+
+* answer in the assistant's own voice instead of referring to pages ([b79d2ca](https://github.com/Daffaariff/hospital-chatbot/commit/b79d2ca033fc7ebbe641627e0944765942a4cd1a))
+
 ## [0.6.6](https://github.com/Daffaariff/hospital-chatbot/compare/v0.6.5...v0.6.6) (2026-11-10)
 
 
