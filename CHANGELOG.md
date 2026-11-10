@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.7.1...v0.8.0) (2026-11-10)
+
+
+### Features
+
+* label knowledge, router analysis and user message separately in the answer prompt ([f22f456](https://github.com/Daffaariff/hospital-chatbot/commit/f22f456c0ac6f3356053abab7505559be0c2a3e7))
+
 ## [0.7.1](https://github.com/Daffaariff/hospital-chatbot/compare/v0.7.0...v0.7.1) (2026-11-10)
 
 
