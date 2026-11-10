@@ -36,7 +36,7 @@ class FakeLLM:
 
 
 class FakeIndex:
-    def search(self, *queries, hints=None, top_k=6, rerank=True):
+    def search_many(self, queries, raw="", top_k=6, max_chunks=8):
         return [PRICE]
 
 
@@ -58,17 +58,18 @@ def _svc(route, answers, claims=()):
 
 
 def _route(intent="price", reply=""):
-    return RouterOut(standalone_query="adrenal cost", intent=intent, language="English", direct_reply=reply)
+    return RouterOut(need="adrenal cost", standalone_query="adrenal cost", extra_queries=[], assumption="",
+                     intent=intent, language="English", direct_reply=reply)
 
 
 def test_grounded_price_answer_cites_page():
-    svc = _svc(_route(), [AnswerOut(answerable=True, answer="Out-Patient: $18,995 USD for 3 weeks.", cited_ids=["P2-C3"], medical_topic=False)])
+    svc = _svc(_route(), [AnswerOut(followups=[], answerable=True, answer="Out-Patient: $18,995 USD for 3 weeks.", cited_ids=["P2-C3"], medical_topic=False)])
     r = svc.ask(ChatRequest(message="How much is adrenal treatment?"))
     assert r.answered and r.sources[0].url == "https://x/adrenal"
 
 
 def test_invented_price_is_retried_then_refused():
-    bad = AnswerOut(answerable=True, answer="It costs $9,999.", cited_ids=["P2-C3"], medical_topic=False)
+    bad = AnswerOut(followups=[], answerable=True, answer="It costs $9,999.", cited_ids=["P2-C3"], medical_topic=False)
     svc = _svc(_route(), [bad, bad])
     r = svc.ask(ChatRequest(message="How much?"))
     assert not r.answered and "$9,999" not in r.answer and svc.llm.calls == 3
@@ -76,13 +77,13 @@ def test_invented_price_is_retried_then_refused():
 
 
 def test_user_wrong_price_can_be_quoted_back():
-    ok = AnswerOut(answerable=True, answer="It is not $50; the page lists $18,995.", cited_ids=["P2-C3"], medical_topic=False)
+    ok = AnswerOut(followups=[], answerable=True, answer="It is not $50; the page lists $18,995.", cited_ids=["P2-C3"], medical_topic=False)
     r = _svc(_route(), [ok]).ask(ChatRequest(message="I heard it costs $50. Confirm that."))
     assert r.answered
 
 
 def test_uncited_answer_rejected():
-    a = AnswerOut(answerable=True, answer="Yes.", cited_ids=["MADE-UP"], medical_topic=False)
+    a = AnswerOut(followups=[], answerable=True, answer="Yes.", cited_ids=["MADE-UP"], medical_topic=False)
     assert not _svc(_route(), [a, a]).ask(ChatRequest(message="q")).answered
 
 
@@ -93,7 +94,7 @@ def test_booking_skips_retrieval_and_offers_lead_form():
 
 
 def test_disclaimer_only_once():
-    a = AnswerOut(answerable=True, answer="ITC offers immunotherapy.", cited_ids=["P2-C3"], medical_topic=True)
+    a = AnswerOut(followups=[], answerable=True, answer="ITC offers immunotherapy.", cited_ids=["P2-C3"], medical_topic=True)
     first = _svc(_route("info"), [a]).ask(ChatRequest(message="what therapies?"))
     assert "not medical advice" in first.answer
     hist = [ChatMessage(role="user", content="what therapies?"), ChatMessage(role="assistant", content=first.answer)]
@@ -110,33 +111,33 @@ def test_alternate_fixes_history_shape():
 def test_price_in_section_heading_counts_as_evidence():
     inpatient = Chunk("P4-C5", "https://x/anal", "package", "Anal Cancer Treatment", "Included in the In-Patient Program ($30,000 USD)",
                       "- 24/7 medical supervision\n- Full room and board")
-    svc = _svc(_route("info"), [AnswerOut(answerable=True, answer="The In-Patient program costs $30,000 USD.", cited_ids=["P4-C5"], medical_topic=False)])
-    svc.index.search = lambda *q, **kw: [inpatient]
+    svc = _svc(_route("info"), [AnswerOut(followups=[], answerable=True, answer="The In-Patient program costs $30,000 USD.", cited_ids=["P4-C5"], medical_topic=False)])
+    svc.index.search_many = lambda *q, **kw: [inpatient]
     assert svc.ask(ChatRequest(message="What is in the in-patient package?")).answered
 
 
 def test_not_found_keeps_related_source():
-    a = AnswerOut(answerable=False, answer="Our pages don't state a recovery time.", cited_ids=["P2-C3"], medical_topic=False)
+    a = AnswerOut(followups=[], answerable=False, answer="Our pages don't state a recovery time.", cited_ids=["P2-C3"], medical_topic=False)
     r = _svc(_route("info"), [a]).ask(ChatRequest(message="recovery time?"))
     assert not r.answered and r.sources[0].url == "https://x/adrenal" and r.show_lead_form
 
 
 def test_invented_duration_is_rejected():
-    bad = AnswerOut(answerable=True, answer="It is a 2-week program with an 85% success rate.", cited_ids=["P2-C3"], medical_topic=False)
+    bad = AnswerOut(followups=[], answerable=True, answer="It is a 2-week program with an 85% success rate.", cited_ids=["P2-C3"], medical_topic=False)
     r = _svc(_route(), [bad, bad]).ask(ChatRequest(message="How long is it?"))
     assert not r.answered and "85%" not in r.answer
 
 
 def test_unsupported_claim_retried_then_accepted():
-    bad = AnswerOut(answerable=True, answer="ITC is JCI accredited and costs $18,995.", cited_ids=["P2-C3"], medical_topic=False)
-    good = AnswerOut(answerable=True, answer="The Out-Patient program costs $18,995.", cited_ids=["P2-C3"], medical_topic=False)
+    bad = AnswerOut(followups=[], answerable=True, answer="ITC is JCI accredited and costs $18,995.", cited_ids=["P2-C3"], medical_topic=False)
+    good = AnswerOut(followups=[], answerable=True, answer="The Out-Patient program costs $18,995.", cited_ids=["P2-C3"], medical_topic=False)
     svc = _svc(_route(), [bad, good], claims=[["ITC is JCI accredited"], []])
     r = svc.ask(ChatRequest(message="Tell me about ITC"))
     assert r.answered and "JCI" not in r.answer and svc.llm.calls == 5
 
 
 def test_claim_check_outage_fails_open():
-    ok = AnswerOut(answerable=True, answer="The Out-Patient program costs $18,995.", cited_ids=["P2-C3"], medical_topic=False)
+    ok = AnswerOut(followups=[], answerable=True, answer="The Out-Patient program costs $18,995.", cited_ids=["P2-C3"], medical_topic=False)
     assert _svc(_route(), [ok], claims=[RuntimeError("api down")]).ask(ChatRequest(message="cost?")).answered
 
 
@@ -147,7 +148,7 @@ def _events(svc, msg):
 
 
 def test_stream_sends_sentences_then_final():
-    a = AnswerOut(answerable=True, cited_ids=["P2-C3"], medical_topic=False,
+    a = AnswerOut(followups=[], answerable=True, cited_ids=["P2-C3"], medical_topic=False,
                   answer="The Out-Patient program is 3 weeks. It costs $18,995.")
     ev = _events(_svc(_route(), [a]), "cost?")
     deltas = "".join(e["text"] for e in ev if e["type"] == "delta")
@@ -155,7 +156,7 @@ def test_stream_sends_sentences_then_final():
 
 
 def test_stream_never_shows_invented_number():
-    bad = AnswerOut(answerable=True, cited_ids=["P2-C3"], medical_topic=False,
+    bad = AnswerOut(followups=[], answerable=True, cited_ids=["P2-C3"], medical_topic=False,
                     answer="The program is 3 weeks. It costs $9,999 in total.")
     ev = _events(_svc(_route(), [bad, bad]), "cost?")
     shown = "".join(e["text"] for e in ev if e["type"] == "delta")
@@ -165,7 +166,7 @@ def test_stream_never_shows_invented_number():
 
 
 def test_leaving_mid_answer_closes_the_llm_stream():
-    a = AnswerOut(answerable=True, cited_ids=["P2-C3"], medical_topic=False,
+    a = AnswerOut(followups=[], answerable=True, cited_ids=["P2-C3"], medical_topic=False,
                   answer="The Out-Patient program is 3 weeks. It costs $18,995. It includes daily care.")
     svc = _svc(_route(), [a])
 

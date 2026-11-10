@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
     SPARSE_MODEL: str = "Qdrant/bm25"
     TOP_K: int = 6
+    MAX_CONTEXT_CHUNKS: int = 8
     QDRANT_URL: str = ""  # empty = embedded local mode under DATA_DIR/qdrant
     METADATA_FILTERS: bool = True
     RERANK_MODEL: str = "jinaai/jina-reranker-v1-turbo-en"  # empty disables reranking

@@ -54,6 +54,7 @@ TREATMENT_TERMS = {
 
 # Phrase -> section type, checked in order (so "not included" wins over "included")
 SECTION_TERMS = [
+    ("video", "videos"), ("testimonial", "videos"), ("watch", "videos"),
     ("not included", "excluded"), ("not covered", "excluded"), ("excluded", "excluded"), ("extra cost", "excluded"),
     ("additional cost", "excluded"), ("hidden cost", "excluded"),
     ("optional", "optional"),

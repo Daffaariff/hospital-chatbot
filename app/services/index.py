@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.core.constants import COLLECTION
 from app.core.logging import get_logger
 from app.ingest.chunker import Chunk
-from app.services.query_hints import QueryHints
+from app.services.query_hints import QueryHints, analyze
 
 log = get_logger("services.index")
 KEYWORD_FIELDS = ("treatment", "section_type", "page_type", "countries")
@@ -96,13 +96,19 @@ class KnowledgeIndex:
         """Narrow rankings that get fused with the unfiltered one, so a wrong hint can boost but never hide."""
         def cond(key, value):
             return models.FieldCondition(key=key, match=models.MatchValue(value=value))
+        # NOTE: testimonial-video chunks have cancer-heavy titles; unless videos are asked for, keep them out of
+        # the boosted rankings (they still compete in the unfiltered one)
+        not_videos = [] if hints.section == "videos" else [cond("section_type", "videos")]
         out = []
         if hints.treatment and hints.section:
-            out.append(models.Filter(must=[cond("treatment", hints.treatment), cond("section_type", hints.section)]))
+            out.append(models.Filter(must=[cond("treatment", hints.treatment), cond("section_type", hints.section)],
+                                     must_not=not_videos))
         if hints.treatment:
-            out.append(models.Filter(must=[cond("treatment", hints.treatment)]))
+            out.append(models.Filter(must=[cond("treatment", hints.treatment)], must_not=not_videos))
         elif hints.section:
-            out.append(models.Filter(must=[cond("section_type", hints.section)]))
+            out.append(models.Filter(must=[cond("section_type", hints.section)], must_not=not_videos))
+        else:
+            out.append(models.Filter(must_not=not_videos))
         return out
 
     def search(self, *queries: str, hints: QueryHints | None = None, top_k: int = settings.TOP_K,
@@ -112,7 +118,7 @@ class KnowledgeIndex:
         use_rerank = rerank and self.reranker is not None
         pool = settings.RERANK_CANDIDATES if use_rerank else top_k
         prefetch = self._prefetch(queries, pool, None)
-        for flt in self._filters(hints) if hints and settings.METADATA_FILTERS else []:
+        for flt in self._filters(hints or QueryHints()) if settings.METADATA_FILTERS else []:
             prefetch += self._prefetch(queries, pool, flt)
         with self.lock:
             res = self.client.query_points(COLLECTION, prefetch=prefetch,
@@ -121,6 +127,24 @@ class KnowledgeIndex:
         if not use_rerank or len(chunks) <= 1:
             return chunks[:top_k]
         return self._blend_rerank(queries[0], chunks)[:top_k]
+
+    def search_many(self, queries: list[str], raw: str = "", top_k: int = settings.TOP_K,
+                    max_chunks: int = settings.MAX_CONTEXT_CHUNKS) -> list[Chunk]:
+        """One filtered + reranked search per need, interleaved so every part of a multi-part question is covered."""
+        queries = [q for q in dict.fromkeys(queries) if q]
+        if len(queries) <= 1:
+            q = queries[0] if queries else raw
+            return self.search(q, raw, hints=analyze(q), top_k=top_k)
+        # NOTE: the raw message mixes all parts, so each sub-query searches on its own wording
+        per_query = max(3, top_k // len(queries) + 1)
+        lists = [self.search(q, hints=analyze(q), top_k=per_query) for q in queries]
+        merged, seen = [], set()
+        for rank in range(per_query):
+            for results in lists:
+                if rank < len(results) and results[rank].id not in seen:
+                    seen.add(results[rank].id)
+                    merged.append(results[rank])
+        return merged[:max_chunks]
 
     def _blend_rerank(self, query: str, chunks: list[Chunk], k: int = 10) -> list[Chunk]:
         """RRF of the fused (filter-aware) rank and the cross-encoder rank, so the reranker can't erase filter gains."""

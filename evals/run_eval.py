@@ -36,6 +36,8 @@ def check(case: dict, r: ChatResponse) -> list[str]:
         fails.append(f"intent={r.intent}")
     if case.get("lead_form") and not r.show_lead_form:
         fails.append("no lead form")
+    if case.get("followups") and not r.followups:
+        fails.append("no follow-up suggestions")
     return fails
 
 
@@ -70,7 +72,8 @@ async def main(url: str, only: str | None, workers: int) -> int:
         src = "\n".join(f"- [{s.title}]({s.url})" for s in r.sources) or "- none"
         out.append(f"## {c['id']} · {c['type']} · {'✅ pass' if not fails else '❌ ' + '; '.join(fails)}\n\n"
                    f"{hist}**Q:** {c['q']}\n\n**A:** {r.answer}\n\n**Sources:**\n{src}\n\n"
-                   f"intent `{r.intent}` · answered `{r.answered}` · lead form `{r.show_lead_form}` · {secs:.1f}s\n")
+                   f"intent `{r.intent}` · answered `{r.answered}` · lead form `{r.show_lead_form}` · {secs:.1f}s"
+                   + (f"\n\n**Suggested follow-ups:** {' · '.join(r.followups)}" if r.followups else "") + "\n")
     Path(ROOT / "TEST_RESULTS.md").write_text("\n".join(out))
     print(f"\n{passed}/{len(cases)} passed -> TEST_RESULTS.md")
     return 0 if passed == len(cases) else 1

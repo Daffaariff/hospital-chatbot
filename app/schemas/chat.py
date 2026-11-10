@@ -7,7 +7,10 @@ Intent = Literal["info", "price", "comparison", "medical_advice", "booking", "qu
 
 
 class RouterOut(BaseModel):
-    standalone_query: str = Field(description="The latest question rewritten as a self-contained English search query")
+    need: str = Field(description="What the user actually wants to know or do, in one short English sentence")
+    standalone_query: str = Field(description="The main need as one self-contained English search query")
+    extra_queries: list[str] = Field(description="0-2 more English search queries, one per other part of a multi-part question")
+    assumption: str = Field(description="The default you assumed for a vague question (e.g. 'ITC cancer packages'); empty if none")
     intent: Intent
     language: str = Field(description="Language the user wrote in, e.g. English, Spanish, Arabic")
     direct_reply: str = Field(description="Only for greeting/booking/quote_request/out_of_scope: a short reply in the user's language. Empty otherwise.")
@@ -19,6 +22,7 @@ class AnswerOut(BaseModel):
     cited_ids: list[str] = Field(description="Ids of the context chunks the answer uses")
     medical_topic: bool = Field(description="True if the answer discusses treatments, risks, eligibility or health outcomes")
     answer: str
+    followups: list[str] = Field(description="2-3 short follow-up questions this user is likely to ask next, answerable from the context")
 
 
 class ClaimVerdict(BaseModel):
@@ -52,6 +56,7 @@ class ChatResponse(BaseModel):
     answered: bool
     intent: str
     show_lead_form: bool = False
+    followups: list[str] = []
 
 
 class LeadRequest(BaseModel):

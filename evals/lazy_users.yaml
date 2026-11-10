@@ -1,0 +1,88 @@
+# How real visitors type. `need` = what they actually want; `ideal` = what a good assistant does.
+- q: price?
+  need: what treatment at ITC costs
+  ideal: give the ITC package prices (all cancer types start at $18,995 out-patient), say what was assumed, offer to narrow by cancer type
+- q: how much
+  need: cost
+  ideal: same as "price?"
+- q: how much mexico
+  need: cost of treatment in Mexico (ITC, Tijuana)
+  ideal: ITC package prices
+- q: cancer mexico cost
+  need: cost of cancer treatment in Mexico
+  ideal: ITC package prices
+- q: turkey cheaper??
+  need: whether treatment is cheaper in Turkey than Mexico
+  ideal: compare alternative-medicine listings by therapy; note ITC (Mexico) cancer packages have no Turkey equivalent
+- q: inpatient?
+  need: in-patient program details
+  ideal: In-Patient program $30,000 for 3 weeks + what it includes; same across the cancer packages
+- q: and for adrenal?
+  history: [[user, "how much is adenocarcinoma treatment"], [assistant, "The Out-Patient Program costs $18,995 USD for 3 weeks; the In-Patient Program costs $30,000 USD."]]
+  need: adrenal cancer cost
+  ideal: adrenal package prices
+- q: what about turkey
+  history: [[user, "how much is ozone therapy in mexico"], [assistant, "Stem Health Guadalajara in Zapopan lists Ozone Therapy at $1000."]]
+  need: ozone therapy price in Turkey
+  ideal: Turkey ozone listings ($110 Konya, $1800 Istanbul)
+- q: stage 4 breast cancer can u help
+  need: whether ITC treats advanced breast cancer, what it costs, next step
+  ideal: empathetic; what ITC offers for breast cancer + eligibility/assessment + price; recommend doctor + free quote; no promises
+- q: my mom has pancreatic cancer what can you do and how much
+  need: treatment options + cost for a family member
+  ideal: ITC treats pancreatic cancer, $18,995 base; eligibility assessment; lead form
+- q: how much is it, whats included and how long is the stay
+  history: [[user, "tell me about the adrenal cancer program"], [assistant, "ITC's adrenal cancer program in Tijuana is a 3-week alternative treatment program."]]
+  need: three things about the adrenal program
+  ideal: answer all three parts (price, inclusions, 3 weeks)
+- q: is it legit?
+  need: whether ITC is trustworthy
+  ideal: facts from pages (doctors, awards, international patient services); no endorsement beyond the pages
+- q: does it work
+  need: success rates
+  ideal: honest that results/success rates are not on the pages; risks section; talk to doctor
+- q: do u speak english
+  need: language at the clinic
+  ideal: staff is bilingual / English spoken
+- q: hola cuanto cuesta
+  need: price, in Spanish
+  ideal: ITC prices, answered in Spanish
+- q: precio tratamiento cancer
+  need: cancer treatment price, in Spanish
+  ideal: ITC prices in Spanish
+- q: videos?
+  need: patient or clinic videos
+  ideal: point to ITC videos (testimonials by cancer type)
+- q: how to get there
+  need: travel to Tijuana
+  ideal: getting to Tijuana section
+- q: ok thanks
+  need: closing
+  ideal: short friendly close
+- q: i want to book
+  need: book treatment
+  ideal: cannot book directly; offer free quote / lead form
+- q: my email is jane@example.com please call me
+  need: be contacted
+  ideal: acknowledge, offer the lead form (don't claim it was saved)
+- q: cheaper than US?
+  need: savings vs home country
+  ideal: pages say patients save 40-70% abroad on alternative medicine; no US price for ITC
+- q: ozone
+  need: ozone therapy info/prices
+  ideal: ozone therapy listings by country
+- q: anal
+  need: anal cancer program
+  ideal: anal cancer package overview with prices
+- q: whats the difference between inpatient and outpatient
+  need: compare programs
+  ideal: out-patient $18,995 vs in-patient $30,000 (24/7 supervision, room and board)
+- q: can i bring my wife
+  need: companion during treatment
+  ideal: family member FAQ (anal page) / companion support services
+- q: what if something goes wrong there
+  need: emergencies and risks
+  ideal: risks section + emergency services excluded (ambulance $950)
+- q: how long
+  need: treatment duration
+  ideal: 3-week programs

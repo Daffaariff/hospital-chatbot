@@ -19,6 +19,7 @@
   .src { margin-top:8px; font-size:13px; color:var(--muted); white-space:normal; }
   .src a { color:var(--brand); display:block; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .followups { margin-top:10px; white-space:normal; }
   .chip { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px; padding:6px 12px; cursor:pointer; font-size:13px; }
   form.lead { display:grid; gap:6px; margin-top:8px; white-space:normal; }
   form.lead input { padding:8px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); }
@@ -119,6 +120,15 @@ async function ask(text) {
   const extra = document.createElement("div");
   const s = sourcesEl(data.sources); if (s) extra.appendChild(s);
   if (data.show_lead_form) extra.appendChild(leadForm(text));
+  if (data.followups?.length) {
+    const chips = document.createElement("div"); chips.className = "chips followups";
+    for (const f of data.followups) {
+      const c = document.createElement("button"); c.className = "chip"; c.textContent = f; c.dir = "auto";
+      c.onclick = () => { chips.remove(); ask(f); };
+      chips.appendChild(c);
+    }
+    extra.appendChild(chips);
+  }
   bubble("assistant", data.answer, extra);
   history.push({ role: "user", content: text }, { role: "assistant", content: data.answer });
   history = history.slice(-20);

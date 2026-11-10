@@ -11,13 +11,19 @@ from. When the pages don't hold the answer, the bot says so and offers a free qu
 ```
 question + recent chat history (kept in the browser)
   │
-  ├─ 1. Router (Claude Haiku 5.5, structured output)
-  │     rewrites the question as a standalone English search query (follow-ups, Spanish/Arabic…),
-  │     detects intent: info · price · comparison · medical_advice · booking · quote_request · greeting · out_of_scope
+  ├─ 1. Router (Claude Haiku 5.5, structured output): understand the person, not just the words
+  │     need: what they actually want ("price?" → the cost of ITC's cancer packages)
+  │     assumption: the default picked for a vague message, stated back to the user
+  │     standalone_query + up to 2 extra_queries: one English search per need ("how much, what's included and
+  │     how long" → three searches), follow-ups resolved from history, Spanish/Arabic translated
+  │     intent: info · price · comparison · medical_advice · booking · quote_request · greeting · out_of_scope
   │     booking / quote / greeting / out-of-scope → short reply (+ lead form). No retrieval, no facts.
   │
-  ├─ 2. Hybrid retrieval (Qdrant, local mode)
-  │     dense: BAAI/bge-small-en-v1.5 · sparse: BM25 · fused with Reciprocal Rank Fusion · top 6 chunks
+  ├─ 2. Retrieval (Qdrant), one search per need, results interleaved (max 8 chunks)
+  │     dense (bge-small-en-v1.5) + sparse BM25 rankings, unfiltered and metadata-filtered
+  │     (treatment / section type derived from the query; video testimonials demoted unless asked for),
+  │     fused with RRF, then the top 20 reranked by a cross-encoder (jina-reranker-v1-turbo) and blended
+  │     back with the fused rank
   │
   ├─ 3. Answer (Claude Opus 5.5, structured output, streamed)
   │     {answerable, cited_ids, medical_topic, answer}: answers only from the chunks, in the user's language.
@@ -58,6 +64,26 @@ request continues (fail open), because numbers and citations are already verifie
 
 No layout model (Docling etc.) or GPU is needed. The source is clean server-rendered HTML whose headings and tables
 already give the structure, and embeddings run on CPU in seconds.
+
+### Retrieval quality, measured
+
+`evals/retrieval_eval.py` scores retrieval offline (no LLM calls) on 60 labelled queries, 18 of them hard
+(padded rewrites, sibling packages with identical section names, typos, Spanish/Arabic):
+
+| Configuration | recall@6 (all / hard) | MRR@6 (all / hard) |
+|---|---|---|
+| hybrid dense + BM25 | 0.983 / 0.944 | 0.876 / 0.829 |
+| + metadata filters | 1.0 / 1.0 | 0.889 / 0.917 |
+| + cross-encoder rerank, blended | **1.0 / 1.0** | **0.947 / 0.944** |
+
+Two findings shaped the design. Sorting purely by reranker score erased the filter gains (hard MRR fell to 0.83), so
+the reranker's rank is blended with the fused rank instead. And a separate "no videos" ranking diluted the filters,
+so the video demotion is folded into the filtered rankings. Rerankers compared: MiniLM-L6/L12, jina tiny/turbo;
+bge-reranker-v2-m3 was ruled out because it needs more RAM than the 2 GB server has.
+
+Chunk metadata (treatment, section type, has_price, countries) lives in the Qdrant payload, which is the single
+source of truth. `placidway` is an alias: each rebuild writes a new collection and repoints the alias atomically,
+which works the same in embedded mode and against a Qdrant server (`QDRANT_URL`, with payload indexes).
 
 ### Refreshing content
 
@@ -136,7 +162,8 @@ The OpenAI adapter streams too, and model output wrapped in prose or ``` fences 
 
 ```bash
 pytest                          # offline: parser, promo-price stripping, guards, pipeline with a fake LLM
-python evals/run_eval.py --url http://localhost:8000   # 18 questions against a running bot → TEST_RESULTS.md
+python evals/run_eval.py --url http://localhost:8000   # 28 questions (incl. lazy-user ones) → TEST_RESULTS.md
+python evals/retrieval_eval.py -v                      # retrieval recall/MRR ablation, offline
 ```
 
 The eval checks are rules, not an LLM judge: required amounts present, forbidden amounts absent, the expected source

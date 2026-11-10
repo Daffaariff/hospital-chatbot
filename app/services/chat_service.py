@@ -18,7 +18,6 @@ from app.prompts.system_prompts import (ANSWER_SYSTEM, CLAIM_CHECK_SYSTEM, PLACI
 from app.schemas.chat import AnswerOut, ChatRequest, ChatResponse, ClaimCheck, RouterOut, Source
 from app.services.guards import unsupported_facts, valid_citations
 from app.services.index import KnowledgeIndex
-from app.services.query_hints import analyze
 from app.services.store import Store
 from app.services.streaming import JsonFieldStream, SentenceBuffer
 
@@ -67,7 +66,8 @@ class ChatService:
     async def stream(self, req: ChatRequest) -> AsyncIterator[Event]:
         history = _alternate([m.model_dump() for m in req.history[-settings.HISTORY_TURNS * 2:]])
         route = await self._route(history, req.message)
-        log.info(f"intent={route.intent} lang={route.language} query={route.standalone_query!r}")
+        log.info(f"intent={route.intent} lang={route.language} need={route.need!r} queries="
+                 f"{[route.standalone_query, *route.extra_queries]!r} assumption={route.assumption!r}")
 
         if route.intent in NO_RETRIEVAL_INTENTS:
             lead = route.intent in LEAD_INTENTS
@@ -78,9 +78,8 @@ class ChatService:
 
         yield {"type": "status", "text": STATUS_SEARCHING}
         # NOTE: embedding + search is CPU work; keep it off the event loop
-        hints = analyze(route.standalone_query)
-        log.info(f"retrieval hints: {hints}")
-        chunks = await asyncio.to_thread(self.index.search, route.standalone_query, req.message, hints=hints)
+        queries = [route.standalone_query, *route.extra_queries[:2]]
+        chunks = await asyncio.to_thread(self.index.search_many, queries, req.message)
         result = Outcome()
         async with aclosing(self._grounded_answer(req, history, route, chunks, result)) as events:
             async for event in events:
@@ -101,12 +100,13 @@ class ChatService:
             # NOTE: a "not on our pages" reply may still point to the closest related page
             self.store.log_unanswered(req.message, route.standalone_query, "not in content")
             return ChatResponse(answer=out.answer or _pick(NOT_FOUND, route.language), answered=False,
-                                intent=route.intent, show_lead_form=True, sources=[*sources, quote])
+                                intent=route.intent, show_lead_form=True, sources=[*sources, quote],
+                                followups=out.followups[:3])
         answer = out.answer
         if (out.medical_topic or route.intent == "medical_advice") and not self._disclaimer_shown(req):
             answer += "\n\n_" + _pick(DISCLAIMER, route.language) + "_"
         return ChatResponse(answer=answer, sources=sources, answered=True, intent=route.intent,
-                            show_lead_form=route.intent in PRICE_INTENTS)
+                            show_lead_form=route.intent in PRICE_INTENTS, followups=out.followups[:3])
 
     async def _route(self, history: list[dict], message: str) -> RouterOut:
         convo = "\n".join(f"{m['role']}: {m['content'][:1500]}" for m in history)
@@ -122,7 +122,8 @@ class ChatService:
             return
         context = "\n".join(f'<chunk id="{c.id}" page="{c.page_title}" section="{c.heading}">\n{c.text}\n</chunk>' for c in chunks)
         system = ANSWER_SYSTEM.format(language=route.language) + (VOICE_STYLE if req.channel == "voice" else "")
-        user = (f"<context>\n{context}\n</context>\n<search_query>{route.standalone_query}</search_query>\n"
+        assumption = f"<assumption>{route.assumption}</assumption>\n" if route.assumption else ""
+        user = (f"<context>\n{context}\n</context>\n<user_need>{route.need}</user_need>\n{assumption}"
                 f"<question>\n{req.message}\n</question>")
         by_id = {c.id: c for c in chunks}
         # NOTE: numbers the user typed are allowed so "$50 is not correct" passes the check

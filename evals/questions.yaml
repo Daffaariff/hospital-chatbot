@@ -99,3 +99,62 @@
   answered: true
   source: search-medical-pricings
   any_of: [insurance]
+# --- how real visitors type
+- id: lazy-price
+  type: Lazy ("price?")
+  q: price?
+  answered: true
+  amounts: [18995]
+  followups: true
+- id: lazy-spanish
+  type: Lazy, Spanish ("hola cuanto cuesta")
+  q: hola cuanto cuesta
+  answered: true
+  amounts: [18995]
+  any_of: [paquete, programa, cuesta, incluye, precio]
+- id: lazy-english
+  type: Lazy ("do u speak english")
+  q: do u speak english
+  answered: true
+  forbid_intent: [greeting]
+  any_of: [bilingual, English]
+- id: lazy-ozone
+  type: Lazy, one word ("ozone")
+  q: ozone
+  answered: true
+  amounts: [110]
+  source: search-medical-pricings
+- id: lazy-multipart
+  type: Lazy, three questions in one
+  history:
+    - [user, "tell me about the adrenal cancer program"]
+    - [assistant, "ITC's adrenal cancer program in Tijuana is a 3-week alternative treatment program."]
+  q: how much is it, whats included and how long is the stay
+  answered: true
+  amounts: [18995]
+  any_of: [3 weeks, 3-week, three weeks]
+  source: package/7902
+- id: lazy-followup-country
+  type: Lazy follow-up ("what about turkey")
+  history:
+    - [user, "how much is ozone therapy in mexico"]
+    - [assistant, "Stem Health Guadalajara in Zapopan lists Ozone Therapy at $1000."]
+  q: what about turkey
+  amounts: [110]
+- id: lazy-personal
+  type: Lazy, personal ("stage 4 breast cancer can u help")
+  q: stage 4 breast cancer can u help
+  any_of: [doctor, medical team, assessment, eligib]
+  followups: true
+- id: lazy-companion
+  type: Lazy ("can i bring my wife")
+  q: can i bring my wife
+  any_of: [family, companion]
+- id: lazy-duration
+  type: Lazy ("how long")
+  q: how long
+  any_of: [3 weeks, 3-week, three weeks]
+- id: lazy-thanks
+  type: Lazy, closing ("ok thanks")
+  q: ok thanks
+  intent: greeting
