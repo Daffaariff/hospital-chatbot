@@ -114,7 +114,7 @@ LLM_PROVIDER=openai OPENAI_API_KEY=... ANSWER_MODEL=gpt-4.1 ROUTER_MODEL=gpt-4.1
 
 ```bash
 pytest                          # offline: parser, promo-price stripping, guards, pipeline with a fake LLM
-python evals/run_eval.py --url http://localhost:8000   # 17 questions against a running bot → TEST_RESULTS.md
+python evals/run_eval.py --url http://localhost:8000   # 18 questions against a running bot → TEST_RESULTS.md
 ```
 
 The eval checks are rules, not an LLM judge: required amounts present, forbidden amounts absent, the expected source
@@ -135,11 +135,12 @@ page cited, intent, and lead form. See `evals/questions.yaml`.
 
 Docker Compose on a small VPS: the app plus Caddy for automatic HTTPS. CI/CD runs on GitHub Actions:
 
-- `ci.yml`: tests on every push and PR.
-- `release.yml`: [release-please](https://github.com/googleapis/release-please) keeps a release PR up to date from
-  conventional commits and the workflow merges it automatically, so every push to `main` is tagged, released and
-  deployed over SSH (`git checkout <release tag>` →
-  `docker compose up -d --build` → health check).
+- `ci.yml`: tests on every pull request.
+- `release.yml`, on every push to `main`: tests run, then the commit deploys over SSH (`git checkout <sha>` →
+  `docker compose up -d --build` → Caddy reload → health check). In parallel,
+  [release-please](https://github.com/googleapis/release-please) updates its release PR from conventional commits,
+  merges it automatically and tags the version. During the container swap Caddy holds requests, so users see a
+  slower reply instead of an error.
 
 Secrets are never in the repo: the server keeps its own `.env`, and Actions only needs `SSH_HOST`, `SSH_USER` and
 `SSH_KEY`.

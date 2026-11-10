@@ -7,10 +7,19 @@ permissions:
   contents: write
   pull-requests: write
 jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: "3.11"
+          activate-environment: true
+      - run: uv pip install -r requirements-dev.txt
+      - run: pytest
+
   release-please:
     runs-on: ubuntu-24.04
-    outputs:
-      tag_name: ${{ steps.rp.outputs.tag_name || steps.rp2.outputs.tag_name }}
     steps:
       - id: rp
         uses: googleapis/release-please-action@v5
@@ -36,21 +45,15 @@ jobs:
           manifest-file: .release-please-manifest.json
 
   deploy:
-    needs: release-please
+    needs: test
     concurrency:
       group: deploy
       cancel-in-progress: false
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v10.3.3
-        with:
-          python-version: "3.11"
-          activate-environment: true
-      - run: uv pip install -r requirements-dev.txt && pytest
       - uses: appleboy/ssh-action@v1.2.5
         env:
-          REF: ${{ needs.release-please.outputs.tag_name || github.sha }}
+          REF: ${{ github.sha }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
@@ -64,10 +67,10 @@ jobs:
             docker compose up -d --build --remove-orphans
             docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
             docker image prune -f
-            for i in $(seq 1 60); do
+            for i in $(seq 1 90); do
               docker compose exec -T app python -c "import urllib.request as u; u.urlopen('http://localhost:8000/api/v1/health')" >/dev/null 2>&1 && break
               echo "waiting for app to start ($i)"
-              sleep 5
+              sleep 2
             done
             docker compose exec -T app python -c "import urllib.request as u; print(u.urlopen('http://localhost:8000/api/v1/health').read().decode())"
             docker compose ps
