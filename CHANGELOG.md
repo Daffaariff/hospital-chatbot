@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.5.2...v0.6.0) (2026-11-10)
+
+
+### Features
+
+* metadata-filtered hybrid retrieval with blended cross-encoder rerank (hard-set MRR 0.83 -&gt; 0.94) ([86eb9b7](https://github.com/Daffaariff/hospital-chatbot/commit/86eb9b7bbc54531a292ff31ba01d3085b8e6f5cc))
+* understand real-world messages (need, assumption, multi-part search, follow-ups) and demote video chunks ([1d5863d](https://github.com/Daffaariff/hospital-chatbot/commit/1d5863d83728b5c24e45f6f65ada2a8f4ca2ee9b))
+
 ## [0.5.2](https://github.com/Daffaariff/hospital-chatbot/compare/v0.5.1...v0.5.2) (2026-11-10)
 
 
