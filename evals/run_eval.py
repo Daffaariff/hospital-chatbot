@@ -36,6 +36,8 @@ def check(case: dict, r: ChatResponse) -> list[str]:
         fails.append(f"intent={r.intent}")
     if case.get("lead_form") and not r.show_lead_form:
         fails.append("no lead form")
+    if case.get("max_words") and len(r.answer.split()) > case["max_words"]:
+        fails.append(f"{len(r.answer.split())} words > {case['max_words']}")
     if case.get("followups") and not r.followups:
         fails.append("no follow-up suggestions")
     return fails

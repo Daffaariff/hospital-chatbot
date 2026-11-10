@@ -12,6 +12,7 @@ class RouterOut(BaseModel):
     extra_queries: list[str] = Field(description="0-2 more English search queries, one per other part of a multi-part question")
     assumption: str = Field(description="The default you assumed for a vague question (e.g. 'ITC cancer packages'); empty if none")
     intent: Intent
+    considering_treatment: bool = Field(description="True if the person is weighing treatment for themselves or a family member")
     language: str = Field(description="Language the user wrote in, e.g. English, Spanish, Arabic")
     direct_reply: str = Field(description="Only for greeting/booking/quote_request/out_of_scope: a short reply in the user's language. Empty otherwise.")
 

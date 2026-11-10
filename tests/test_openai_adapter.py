@@ -7,7 +7,7 @@ from app.adapters.openai_adapter import OpenAIAdapter
 from app.schemas.chat import RouterOut
 
 ROUTE = {"need": "adrenal cost", "standalone_query": "adrenal cost", "extra_queries": [], "assumption": "",
-         "intent": "price", "language": "English", "direct_reply": ""}
+         "intent": "price", "considering_treatment": False, "language": "English", "direct_reply": ""}
 
 
 def _completion(content: str) -> dict:

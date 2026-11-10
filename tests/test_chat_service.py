@@ -57,9 +57,9 @@ def _svc(route, answers, claims=()):
     return SvcForTest(FakeLLM(route, answers, claims), FakeIndex(), FakeStore())
 
 
-def _route(intent="price", reply=""):
+def _route(intent="price", reply="", considering=False):
     return RouterOut(need="adrenal cost", standalone_query="adrenal cost", extra_queries=[], assumption="",
-                     intent=intent, language="English", direct_reply=reply)
+                     intent=intent, considering_treatment=considering, language="English", direct_reply=reply)
 
 
 def test_grounded_price_answer_cites_page():
@@ -196,3 +196,9 @@ def test_limited_llm_caps_concurrency():
         await asyncio.gather(*(llm.complete_structured(model="m") for _ in range(10)))
     asyncio.run(burst())
     assert Slow.peak == 3
+
+
+def test_lead_form_for_someone_considering_treatment():
+    a = AnswerOut(followups=[], answerable=True, cited_ids=["P2-C3"], medical_topic=True, answer="ITC treats adrenal cancer.")
+    assert _svc(_route("info", considering=True), [a]).ask(ChatRequest(message="my dad has adrenal cancer")).show_lead_form
+    assert not _svc(_route("info"), [a]).ask(ChatRequest(message="what therapies?")).show_lead_form

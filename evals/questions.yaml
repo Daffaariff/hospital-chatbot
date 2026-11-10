@@ -105,6 +105,8 @@
   q: price?
   answered: true
   amounts: [18995]
+  any_of: [3 weeks, 3-week, three weeks]
+  max_words: 110
   followups: true
 - id: lazy-spanish
   type: Lazy, Spanish ("hola cuanto cuesta")
@@ -145,6 +147,7 @@
   type: Lazy, personal ("stage 4 breast cancer can u help")
   q: stage 4 breast cancer can u help
   any_of: [doctor, medical team, assessment, eligib]
+  lead_form: true
   followups: true
 - id: lazy-companion
   type: Lazy ("can i bring my wife")
@@ -154,6 +157,7 @@
   type: Lazy ("how long")
   q: how long
   any_of: [3 weeks, 3-week, three weeks]
+  max_words: 90
 - id: lazy-thanks
   type: Lazy, closing ("ok thanks")
   q: ok thanks

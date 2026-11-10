@@ -105,8 +105,9 @@ class ChatService:
         answer = out.answer
         if (out.medical_topic or route.intent == "medical_advice") and not self._disclaimer_shown(req):
             answer += "\n\n_" + _pick(DISCLAIMER, route.language) + "_"
+        lead = route.intent in PRICE_INTENTS or route.considering_treatment
         return ChatResponse(answer=answer, sources=sources, answered=True, intent=route.intent,
-                            show_lead_form=route.intent in PRICE_INTENTS, followups=out.followups[:3])
+                            show_lead_form=lead, followups=out.followups[:3])
 
     async def _route(self, history: list[dict], message: str) -> RouterOut:
         convo = "\n".join(f"{m['role']}: {m['content'][:1500]}" for m in history)
