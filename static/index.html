@@ -142,6 +142,10 @@ document.getElementById("reset").onclick = () => {
   try { sessionStorage.removeItem("history"); } catch {}
   location.reload();
 };
+document.getElementById("reset").onclick = () => {
+  try { sessionStorage.removeItem("history"); } catch {}
+  location.reload();
+};
 q.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(q.value); } });
 
 for (const m of history) bubble(m.role, m.content);
