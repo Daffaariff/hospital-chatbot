@@ -1,12 +1,17 @@
 """Pick the LLM adapter from LLM_PROVIDER."""
 from functools import lru_cache
 
+from app.adapters.limited import LimitedLLM
 from app.adapters.protocols import LLMPort
 from app.core.config import settings
 
 
 @lru_cache
 def get_llm() -> LLMPort:
+    return LimitedLLM(_provider(), settings.LLM_MAX_CONCURRENCY)
+
+
+def _provider() -> LLMPort:
     if settings.LLM_PROVIDER == "anthropic":
         from app.adapters.anthropic_adapter import AnthropicAdapter
         return AnthropicAdapter()

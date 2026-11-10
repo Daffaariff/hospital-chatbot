@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     OPENAI_JSON_MODE: str = "schema"  # schema | object (for models without JSON-schema support)
     LLM_TIMEOUT: float = 60.0
     LLM_MAX_RETRIES: int = 2
+    LLM_MAX_CONCURRENCY: int = 8
 
     EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
     SPARSE_MODEL: str = "Qdrant/bm25"

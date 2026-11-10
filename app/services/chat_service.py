@@ -1,14 +1,17 @@
 """Grounded answer pipeline: route -> retrieve -> stream answer (checked per sentence) -> final guards."""
-from collections.abc import Generator, Iterator
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import aclosing
+from dataclasses import dataclass
 
 from pydantic import ValidationError
 
 from app.adapters.protocols import LLMPort, LLMRefusal
 from app.core.config import settings
-from app.core.logging import get_logger
-from app.ingest.chunker import Chunk
 from app.core.constants import LEAD_INTENTS, NO_RETRIEVAL_INTENTS, PRICE_INTENTS
+from app.core.logging import get_logger
 from app.helpers.json_text import extract_json
+from app.ingest.chunker import Chunk
 from app.core.messages import DISCLAIMER, NOT_FOUND, SOURCE_CONTACT, SOURCE_QUOTE, STATUS_CHECKING, STATUS_SEARCHING
 from app.prompts.system_prompts import (ANSWER_SYSTEM, CLAIM_CHECK_SYSTEM, PLACIDWAY_FACTS, RETRY_NOTE, ROUTER_SYSTEM,
                                        VOICE_STYLE)
@@ -22,6 +25,13 @@ log = get_logger("services.chat")
 
 # Events: {"type": "status", "text"} · {"type": "delta", "text"} · {"type": "reset"} · {"type": "final", "response"}
 Event = dict
+
+
+@dataclass
+class Outcome:
+    """Result of the answer step (async generators can't return values)."""
+    out: AnswerOut | None = None
+    problem: str | None = None
 
 
 def _pick(table: dict[str, str], language: str) -> str:
@@ -45,16 +55,17 @@ class ChatService:
     def __init__(self, llm: LLMPort, index: KnowledgeIndex, store: Store):
         self.llm, self.index, self.store = llm, index, store
 
-    def answer(self, req: ChatRequest) -> ChatResponse:
+    async def answer(self, req: ChatRequest) -> ChatResponse:
         """Non-streaming entry point: same pipeline, returns the final response."""
-        for event in self.stream(req):
-            if event["type"] == "final":
-                return event["response"]
+        async with aclosing(self.stream(req)) as events:
+            async for event in events:
+                if event["type"] == "final":
+                    return event["response"]
         raise RuntimeError("pipeline ended without a final event")
 
-    def stream(self, req: ChatRequest) -> Iterator[Event]:
+    async def stream(self, req: ChatRequest) -> AsyncIterator[Event]:
         history = _alternate([m.model_dump() for m in req.history[-settings.HISTORY_TURNS * 2:]])
-        route = self._route(history, req.message)
+        route = await self._route(history, req.message)
         log.info(f"intent={route.intent} lang={route.language} query={route.standalone_query!r}")
 
         if route.intent in NO_RETRIEVAL_INTENTS:
@@ -65,9 +76,13 @@ class ChatService:
             return
 
         yield {"type": "status", "text": STATUS_SEARCHING}
-        chunks = self.index.search(route.standalone_query, req.message)
-        out, problem = yield from self._grounded_answer(req, history, route, chunks)
-        yield {"type": "final", "response": self._finish(req, route, chunks, out, problem)}
+        # NOTE: embedding + search is CPU work; keep it off the event loop
+        chunks = await asyncio.to_thread(self.index.search, route.standalone_query, req.message)
+        result = Outcome()
+        async with aclosing(self._grounded_answer(req, history, route, chunks, result)) as events:
+            async for event in events:
+                yield event
+        yield {"type": "final", "response": self._finish(req, route, chunks, result.out, result.problem)}
 
     def _finish(self, req: ChatRequest, route: RouterOut, chunks: list[Chunk], out: AnswerOut | None,
                 problem: str | None) -> ChatResponse:
@@ -90,17 +105,18 @@ class ChatService:
         return ChatResponse(answer=answer, sources=sources, answered=True, intent=route.intent,
                             show_lead_form=route.intent in PRICE_INTENTS)
 
-    def _route(self, history: list[dict], message: str) -> RouterOut:
+    async def _route(self, history: list[dict], message: str) -> RouterOut:
         convo = "\n".join(f"{m['role']}: {m['content'][:1500]}" for m in history)
         prompt = f"<conversation>\n{convo}\n</conversation>\n<latest_user_message>\n{message}\n</latest_user_message>"
-        return self.llm.complete_structured(model=settings.ROUTER_MODEL, system=ROUTER_SYSTEM,
+        return await self.llm.complete_structured(model=settings.ROUTER_MODEL, system=ROUTER_SYSTEM,
                                             messages=[{"role": "user", "content": prompt}], schema=RouterOut, effort="low")
 
-    def _grounded_answer(self, req: ChatRequest, history: list[dict], route: RouterOut,
-                         chunks: list[Chunk]) -> Generator[Event, None, tuple[AnswerOut | None, str | None]]:
-        """Stream the answer sentence by sentence, verify it, retry once with the reason. Returns (answer, problem)."""
+    async def _grounded_answer(self, req: ChatRequest, history: list[dict], route: RouterOut, chunks: list[Chunk],
+                               result: Outcome) -> AsyncIterator[Event]:
+        """Stream the answer sentence by sentence, verify it, retry once with the reason. Fills `result`."""
         if not chunks:
-            return None, "no chunks retrieved"
+            result.problem = "no chunks retrieved"
+            return
         context = "\n".join(f'<chunk id="{c.id}" page="{c.page_title}" section="{c.heading}">\n{c.text}\n</chunk>' for c in chunks)
         system = ANSWER_SYSTEM.format(language=route.language) + (VOICE_STYLE if req.channel == "voice" else "")
         user = (f"<context>\n{context}\n</context>\n<search_query>{route.standalone_query}</search_query>\n"
@@ -108,7 +124,6 @@ class ChatService:
         by_id = {c.id: c for c in chunks}
         # NOTE: numbers the user typed are allowed so "$50 is not correct" passes the check
         context_evidence = [c.embed_text for c in chunks] + [req.message]
-        out, problem = None, None
         for _ in range(2):
             messages = [*history, {"role": "user", "content": user}]
             raw, shown, problem = "", False, None
@@ -116,21 +131,20 @@ class ChatService:
             stream = self.llm.stream_structured(model=settings.ANSWER_MODEL, system=system, messages=messages,
                                                 schema=AnswerOut, effort="medium")
             try:
-                for delta in stream:
-                    raw += delta
-                    for piece in sentences.push(field.feed(delta)):
-                        # NOTE: a sentence is only shown after its numbers are found in the retrieved context
-                        if bad := unsupported_facts(piece, context_evidence):
-                            problem = f"numbers not found in the context: {bad}"
+                async with aclosing(stream):
+                    async for delta in stream:
+                        raw += delta
+                        for piece in sentences.push(field.feed(delta)):
+                            # NOTE: a sentence is only shown after its numbers are found in the retrieved context
+                            if bad := unsupported_facts(piece, context_evidence):
+                                problem = f"numbers not found in the context: {bad}"
+                                break
+                            shown = True
+                            yield {"type": "delta", "text": piece}
+                        if problem:
                             break
-                        shown = True
-                        yield {"type": "delta", "text": piece}
-                    if problem:
-                        break
             except LLMRefusal as e:
                 problem = f"refusal: {e}"
-            finally:
-                stream.close()
 
             if not problem:
                 for piece in sentences.flush():
@@ -139,6 +153,7 @@ class ChatService:
                     else:
                         shown = True
                         yield {"type": "delta", "text": piece}
+            out = None
             if not problem:
                 try:
                     out = AnswerOut.model_validate_json(extract_json(raw))
@@ -146,19 +161,20 @@ class ChatService:
                     problem = "model output was not valid JSON"
             if not problem:
                 yield {"type": "status", "text": STATUS_CHECKING}
-                problem = self._check(req, out, by_id)
+                problem = await self._check(req, out, by_id)
+            result.out, result.problem = out, problem
             if not problem:
-                return out, None
+                return
 
             log.warning(f"guard rejected answer: {problem}")
             if shown:
                 yield {"type": "reset"}
             if problem.startswith("refusal"):
-                return None, problem
+                result.out = None
+                return
             user = f"{user}\n\n{RETRY_NOTE.format(problem=problem)}"
-        return out, problem
 
-    def _check(self, req: ChatRequest, out: AnswerOut, by_id: dict[str, Chunk]) -> str | None:
+    async def _check(self, req: ChatRequest, out: AnswerOut, by_id: dict[str, Chunk]) -> str | None:
         """Final checks on the complete answer against the chunks it cites."""
         cited = valid_citations(out.cited_ids, set(by_id))
         evidence = [by_id[i].embed_text for i in cited]  # page title + heading + text
@@ -168,17 +184,17 @@ class ChatService:
         if bad:
             return f"numbers not found in the cited chunks: {bad}"
         # NOTE: the claim check sees everything the answer model saw; a fact from an uncited retrieved chunk is still grounded
-        if cited and (claims := self._unsupported_claims(out.answer, [c.embed_text for c in by_id.values()])):
+        if cited and (claims := await self._unsupported_claims(out.answer, [c.embed_text for c in by_id.values()])):
             return f"claims not supported by the cited chunks: {claims}"
         return None
 
-    def _unsupported_claims(self, answer: str, evidence: list[str]) -> list[str]:
+    async def _unsupported_claims(self, answer: str, evidence: list[str]) -> list[str]:
         """Second opinion from a small model on non-numeric facts (names, inclusions, medical claims)."""
         if not settings.CLAIM_CHECK:
             return []
         sources = "\n".join(f"<source>\n{e}\n</source>" for e in [*evidence, PLACIDWAY_FACTS])
         try:
-            verdict = self.llm.complete_structured(model=settings.CHECK_MODEL, system=CLAIM_CHECK_SYSTEM, schema=ClaimCheck,
+            verdict = await self.llm.complete_structured(model=settings.CHECK_MODEL, system=CLAIM_CHECK_SYSTEM, schema=ClaimCheck,
                                                    messages=[{"role": "user", "content": f"<sources>\n{sources}\n</sources>\n<answer>\n{answer}\n</answer>"}],
                                                    effort="medium")
         except Exception as e:

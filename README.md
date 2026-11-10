@@ -82,6 +82,12 @@ trigger rebuilds.
 | Storage | SQLite | unanswered questions and leads |
 | UI | one static HTML file | no build step. Chat history stays in the browser, so the server is stateless |
 
+The server is async end to end (`AsyncAnthropic` / `AsyncOpenAI`, async-generator streaming). If a user closes the
+tab mid-answer, the WebSocket send fails, the generator is closed and the provider's HTTP stream stops, so no tokens
+are paid for an answer nobody reads. `LimitedLLM` (`app/adapters/limited.py`) caps concurrent LLM calls with an
+`asyncio.Semaphore` (`LLM_MAX_CONCURRENCY`, default 8), so a burst of users queues briefly instead of hitting
+rate limits. Retrieval (CPU-bound embedding) runs in a worker thread so it never blocks the event loop.
+
 LLM providers sit behind one small interface (`app/adapters/protocols.py`). Each adapter returns a validated
 pydantic object, so the rest of the code doesn't care which provider answered. The Anthropic adapter uses the
 official SDK with structured outputs, prompt caching and server-side refusal fallback.

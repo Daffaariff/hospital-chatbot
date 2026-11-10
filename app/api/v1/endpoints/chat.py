@@ -1,8 +1,9 @@
 """Chat endpoints: POST (whole answer) and WebSocket (streamed events)."""
-import asyncio
+from contextlib import aclosing
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
+from starlette.websockets import WebSocketState
 
 from app.adapters.protocols import LLMRefusal
 from app.api.deps import get_chat
@@ -16,9 +17,9 @@ log = get_logger("api.chat")
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, svc: ChatService = Depends(get_chat)) -> ChatResponse:
+async def chat(req: ChatRequest, svc: ChatService = Depends(get_chat)) -> ChatResponse:
     try:
-        return svc.answer(req)
+        return await svc.answer(req)
     except LLMRefusal:
         raise HTTPException(422, REFUSED)
     except Exception as e:
@@ -31,7 +32,6 @@ async def chat_ws(ws: WebSocket):
     """Client sends a ChatRequest as JSON; server replies with status/delta/reset events and one final event."""
     await ws.accept()
     svc: ChatService = ws.app.state.chat
-    loop = asyncio.get_running_loop()
     try:
         while True:
             try:
@@ -39,24 +39,19 @@ async def chat_ws(ws: WebSocket):
             except (ValidationError, ValueError, TypeError):
                 await ws.send_json({"type": "error", "text": INVALID_MESSAGE})
                 continue
-            queue: asyncio.Queue = asyncio.Queue()
-
-            def run() -> None:
-                # NOTE: the pipeline is sync (SDK streaming), so it runs in a thread and hands events to the socket
-                try:
-                    for event in svc.stream(req):
+            try:
+                # NOTE: if the user leaves, send_json raises and aclosing stops the LLM stream we'd pay for
+                async with aclosing(svc.stream(req)) as events:
+                    async for event in events:
                         if event["type"] == "final":
                             event = {"type": "final", "response": event["response"].model_dump()}
-                        loop.call_soon_threadsafe(queue.put_nowait, event)
-                except Exception as e:
-                    log.exception(f"chat stream failed: {e}")
-                    loop.call_soon_threadsafe(queue.put_nowait, {"type": "error", "text": UNAVAILABLE})
-                finally:
-                    loop.call_soon_threadsafe(queue.put_nowait, None)
-
-            worker = asyncio.create_task(asyncio.to_thread(run))
-            while (event := await queue.get()) is not None:
-                await ws.send_json(event)
-            await worker
+                        await ws.send_json(event)
+            except WebSocketDisconnect:
+                raise
+            except Exception as e:
+                if ws.client_state != WebSocketState.CONNECTED:
+                    return
+                log.exception(f"chat stream failed: {e}")
+                await ws.send_json({"type": "error", "text": UNAVAILABLE})
     except WebSocketDisconnect:
         pass

@@ -5,7 +5,7 @@ from app.schemas.chat import ChatResponse
 
 
 class StubChat:
-    def stream(self, req):
+    async def stream(self, req):
         yield {"type": "status", "text": "Searching our pages…"}
         yield {"type": "delta", "text": "It costs $18,995. "}
         yield {"type": "final", "response": ChatResponse(answer="It costs $18,995.", answered=True, intent="price")}
