@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.6](https://github.com/Daffaariff/hospital-chatbot/compare/v0.6.5...v0.6.6) (2026-11-10)
+
+
+### Bug Fixes
+
+* add the medical disclaimer to partly answered medical questions too ([64facb8](https://github.com/Daffaariff/hospital-chatbot/commit/64facb86496510b87c2b7984105540053aaaa79b))
+
 ## [0.6.5](https://github.com/Daffaariff/hospital-chatbot/compare/v0.6.4...v0.6.5) (2026-11-10)
 
 
