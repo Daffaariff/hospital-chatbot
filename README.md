@@ -97,8 +97,8 @@ tests/          parser, guards and pipeline tests (offline, fake LLM)
 ## Run locally
 
 ```bash
-python3.11 -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt
+uv venv -p 3.11 .venv && source .venv/bin/activate
+uv pip install -r requirements-dev.txt
 cp .env.example .env            # set ANTHROPIC_API_KEY (and API_KEYS for admin endpoints)
 python -m app.ingest            # crawl the 7 pages (~25s at 3s per page) and build the index
 python runner.py --reload       # http://localhost:8000

@@ -1,8 +1,9 @@
 FROM python:3.11-slim
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 FASTEMBED_CACHE_PATH=/models
+COPY --from=ghcr.io/astral-sh/uv:0.13.7 /uv /usr/local/bin/uv
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN uv pip install --system --no-cache -r requirements.txt
 # NOTE: bake embedding models into the image so startup needs no downloads
 RUN python -c "from fastembed import TextEmbedding, SparseTextEmbedding; TextEmbedding('BAAI/bge-small-en-v1.5'); SparseTextEmbedding('Qdrant/bm25')"
 COPY . .

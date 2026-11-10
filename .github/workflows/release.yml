@@ -8,13 +8,13 @@ permissions:
   pull-requests: write
 jobs:
   release-please:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       release_created: ${{ steps.rp.outputs.release_created }}
       tag_name: ${{ steps.rp.outputs.tag_name }}
     steps:
       - id: rp
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@v5
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
@@ -24,14 +24,14 @@ jobs:
     concurrency:
       group: deploy
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v10
         with:
           python-version: "3.11"
-          cache: pip
-      - run: pip install -r requirements-dev.txt && pytest
+          activate-environment: true
+      - run: uv pip install -r requirements-dev.txt && pytest
       - uses: appleboy/ssh-action@v1
         env:
           REF: ${{ needs.release-please.outputs.tag_name || github.sha }}
