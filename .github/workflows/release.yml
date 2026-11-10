@@ -36,6 +36,7 @@ jobs:
           if [ -n "$n" ]; then
             gh pr merge "$n" -R "$GITHUB_REPOSITORY" --squash --delete-branch
             echo "merged=true" >> "$GITHUB_OUTPUT"
+            sleep 10  # NOTE: let GitHub register the merge before release-please looks for it
           fi
       - id: rp2
         if: steps.merge.outputs.merged == 'true'

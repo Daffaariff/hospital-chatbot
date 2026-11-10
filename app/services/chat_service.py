@@ -3,8 +3,8 @@ from app.adapters.protocols import LLMPort, LLMRefusal
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.ingest.chunker import Chunk
-from app.prompts.system_prompts import (ANSWER_SYSTEM, CLAIM_CHECK_SYSTEM, DISCLAIMER, NOT_FOUND, RETRY_NOTE,
-                                       ROUTER_SYSTEM, VOICE_STYLE)
+from app.prompts.system_prompts import (ANSWER_SYSTEM, CLAIM_CHECK_SYSTEM, DISCLAIMER, NOT_FOUND, PLACIDWAY_FACTS,
+                                       RETRY_NOTE, ROUTER_SYSTEM, VOICE_STYLE)
 from app.schemas.chat import AnswerOut, ChatRequest, ChatResponse, ClaimCheck, RouterOut, Source
 from app.services.guards import unsupported_facts, valid_citations
 from app.services.index import KnowledgeIndex
@@ -94,7 +94,7 @@ class ChatService:
             except LLMRefusal as e:
                 return None, f"refusal: {e}"
             cited = valid_citations(out.cited_ids, set(by_id))
-            evidence = [f"{by_id[i].heading}\n{by_id[i].text}" for i in cited]
+            evidence = [by_id[i].embed_text for i in cited]  # page title + heading + text
             # NOTE: numbers the user typed are allowed so "$50 is not correct" passes the check
             bad = unsupported_facts(out.answer, evidence + [req.message])
             if not cited and (out.answerable or bad):
@@ -114,7 +114,7 @@ class ChatService:
         """Second opinion from a small model on non-numeric facts (names, inclusions, medical claims)."""
         if not settings.CLAIM_CHECK:
             return []
-        sources = "\n".join(f"<source>\n{e}\n</source>" for e in evidence)
+        sources = "\n".join(f"<source>\n{e}\n</source>" for e in [*evidence, PLACIDWAY_FACTS])
         try:
             verdict = self.llm.complete_structured(model=settings.CHECK_MODEL, system=CLAIM_CHECK_SYSTEM, schema=ClaimCheck,
                                                    messages=[{"role": "user", "content": f"<sources>\n{sources}\n</sources>\n<answer>\n{answer}\n</answer>"}],
@@ -123,7 +123,7 @@ class ChatService:
             # NOTE: fail open: numbers and citations are already verified in code at this point
             log.warning(f"claim check unavailable, skipping: {e}")
             return []
-        return verdict.unsupported_claims
+        return [c.claim for c in verdict.claims if not c.supported]
 
     @staticmethod
     def _disclaimer_shown(req: ChatRequest) -> bool:

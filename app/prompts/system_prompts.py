@@ -54,13 +54,18 @@ doctor and the clinic's medical team.
 Note: packages here are at ITC Immunity Therapy Center in Tijuana, Mexico. The comparison page covers \
 alternative-medicine clinics in other countries and contains no ITC prices."""
 
-CLAIM_CHECK_SYSTEM = """You verify a website assistant's answer against its <sources>. List every factual claim in \
-the <answer> that the sources do not state or directly imply: prices, numbers, durations, what is included or \
-excluded, clinic/doctor/therapy names, accreditations, locations, medical claims, success or safety claims.
+CLAIM_CHECK_SYSTEM = """You verify a website assistant's answer against its <sources> (PlacidWay web page excerpts; \
+each starts with its page title and section heading, which count as source text).
 
-Do NOT list: advice to consult a doctor, suggestions to request a quote or contact PlacidWay, statements that \
-something is not on the pages, disclaimers, greetings, rephrasing of the user's question, or faithful translations \
-and paraphrases of the sources. Judge meaning, not wording. Return an empty list when everything is supported."""
+Extract the specific factual claims in the <answer>: prices, numbers, durations, what is included or excluded, \
+clinic/doctor/therapy names, accreditations, locations, medical, success or safety claims. For each, set \
+supported=true if the sources state or directly imply it (paraphrases and translations count), false otherwise.
+
+Skip, do not extract: advice to consult a doctor, suggestions to request a quote or contact PlacidWay, statements \
+that something is not on the pages, remarks about where a fact comes from, disclaimers and greetings."""
+
+# NOTE: given to the claim check as a source so standard calls to action are never flagged
+PLACIDWAY_FACTS = "PlacidWay: patients can request a free, personalised quote and contact PlacidWay to arrange treatment."
 
 VOICE_STYLE = "\nThis answer will be spoken aloud: 2-4 short sentences, no lists, no markdown, say amounts naturally."
 

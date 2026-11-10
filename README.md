@@ -49,7 +49,7 @@ request continues (fail open), because numbers and citations are already verifie
    (`Out-Patient Program | 3 Weeks | $18,995`) so a price is never separated from its label. The video page keeps
    ITC's own videos (title + PlacidWay video link), grouped by category.
 3. **Chunk** (`app/ingest/chunker.py`): one chunk per heading section, split on line boundaries above 1,500 chars,
-   with ids like `P2-C3`. The page title and heading are added to the embedded text. That gives 117 chunks.
+   with ids like `P2-C3`. FAQ questions (`<summary>`) count as headings. The page title and heading are added to the embedded text. That gives 128 chunks.
 4. **Index** (`app/services/index.py`): builds into a temp directory and swaps it in, so a failed refresh never breaks
    the live index.
 
@@ -75,7 +75,7 @@ trigger rebuilds.
 | LLM (router) | Claude Haiku 5.5 | fast, cheap rewrite/classify step |
 | Provider switch | `LLM_PROVIDER=anthropic\|openai` | `openai` also covers OpenRouter, Ollama and vLLM via `OPENAI_BASE_URL` |
 | Embeddings | fastembed `bge-small-en-v1.5` + BM25 | local, free, no GPU. BM25 catches exact terms such as "adenocarcinoma" |
-| Vector store | Qdrant local mode | hybrid search + RRF built in, no extra server for 117 chunks |
+| Vector store | Qdrant local mode | hybrid search + RRF built in, no extra server for 128 chunks |
 | Storage | SQLite | unanswered questions and leads |
 | UI | one static HTML file | no build step. Chat history stays in the browser, so the server is stateless |
 

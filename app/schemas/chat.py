@@ -20,8 +20,13 @@ class AnswerOut(BaseModel):
     medical_topic: bool = Field(description="True if the answer discusses treatments, risks, eligibility or health outcomes")
 
 
+class ClaimVerdict(BaseModel):
+    claim: str
+    supported: bool = Field(description="True if the sources state or directly imply it")
+
+
 class ClaimCheck(BaseModel):
-    unsupported_claims: list[str] = Field(description="Factual claims in the answer that the sources do not support. Empty if all are supported.")
+    claims: list[ClaimVerdict] = Field(description="Each specific factual claim in the answer with its verdict")
 
 
 class ChatMessage(BaseModel):

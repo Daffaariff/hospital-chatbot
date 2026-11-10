@@ -1,5 +1,5 @@
 from app.ingest.chunker import Chunk
-from app.schemas.chat import AnswerOut, ChatMessage, ChatRequest, ClaimCheck, RouterOut
+from app.schemas.chat import AnswerOut, ChatMessage, ChatRequest, ClaimCheck, ClaimVerdict, RouterOut
 from app.services.chat_service import ChatService, _alternate
 
 PRICE = Chunk("P2-C3", "https://x/adrenal", "package", "Adrenal Cancer Treatment in Tijuana", "Cost",
@@ -18,7 +18,7 @@ class FakeLLM:
             c = self.claims.pop(0) if self.claims else []
             if isinstance(c, Exception):
                 raise c
-            return ClaimCheck(unsupported_claims=c)
+            return ClaimCheck(claims=[ClaimVerdict(claim=x, supported=False) for x in c] + [ClaimVerdict(claim="ok", supported=True)])
         return self.answers.pop(0)
 
 
