@@ -10,10 +10,26 @@ jobs:
   release-please:
     runs-on: ubuntu-24.04
     outputs:
-      release_created: ${{ steps.rp.outputs.release_created }}
-      tag_name: ${{ steps.rp.outputs.tag_name }}
+      tag_name: ${{ steps.rp.outputs.tag_name || steps.rp2.outputs.tag_name }}
     steps:
       - id: rp
+        uses: googleapis/release-please-action@v5
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+      # NOTE: auto-merge the release PR, then run release-please again so it tags the release in this same run
+      - id: merge
+        if: steps.rp.outputs.release_created != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh pr list -R "$GITHUB_REPOSITORY" --head release-please--branches--main --state open --json number -q '.[0].number')
+          if [ -n "$n" ]; then
+            gh pr merge "$n" -R "$GITHUB_REPOSITORY" --squash --delete-branch
+            echo "merged=true" >> "$GITHUB_OUTPUT"
+          fi
+      - id: rp2
+        if: steps.merge.outputs.merged == 'true'
         uses: googleapis/release-please-action@v5
         with:
           config-file: release-please-config.json

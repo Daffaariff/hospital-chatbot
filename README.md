@@ -137,8 +137,9 @@ Docker Compose on a small VPS: the app plus Caddy for automatic HTTPS. CI/CD run
 
 - `ci.yml`: tests on every push and PR.
 - `release.yml`: [release-please](https://github.com/googleapis/release-please) keeps a release PR up to date from
-  conventional commits. Every push to `main` deploys over SSH (`git checkout <sha or release tag>` →
-  `docker compose up -d --build` → health check). Merging the release PR deploys the tagged release.
+  conventional commits and the workflow merges it automatically, so every push to `main` is tagged, released and
+  deployed over SSH (`git checkout <release tag>` →
+  `docker compose up -d --build` → health check).
 
 Secrets are never in the repo: the server keeps its own `.env`, and Actions only needs `SSH_HOST`, `SSH_USER` and
 `SSH_KEY`.
