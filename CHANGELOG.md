@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.5](https://github.com/Daffaariff/hospital-chatbot/compare/v0.6.4...v0.6.5) (2026-11-10)
+
+
+### Bug Fixes
+
+* define medical topic precisely so logistics answers skip the disclaimer ([afd3493](https://github.com/Daffaariff/hospital-chatbot/commit/afd349373cbfec0bec428dc3f8c45873658ee519))
+
 ## [0.6.4](https://github.com/Daffaariff/hospital-chatbot/compare/v0.6.3...v0.6.4) (2026-11-10)
 
 
