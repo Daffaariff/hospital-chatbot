@@ -27,12 +27,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           python-version: "3.11"
           activate-environment: true
       - run: uv pip install -r requirements-dev.txt && pytest
-      - uses: appleboy/ssh-action@v1
+      - uses: appleboy/ssh-action@v1.2.5
         env:
           REF: ${{ needs.release-please.outputs.tag_name || github.sha }}
         with:
