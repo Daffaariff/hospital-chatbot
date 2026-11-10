@@ -1,10 +1,13 @@
 name: ci
 on:
   pull_request:
+    # NOTE: release-please PRs only touch these and are auto-merged within seconds
+    paths-ignore:
+      - CHANGELOG.md
+      - version.txt
+      - .release-please-manifest.json
 jobs:
   test:
-    # NOTE: release PRs only touch CHANGELOG/version and are auto-merged within seconds
-    if: github.head_ref != 'release-please--branches--main'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
