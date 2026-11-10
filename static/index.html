@@ -78,26 +78,52 @@ function leadForm(question) {
   return f;
 }
 
+function streamChat(body, onEvent) {
+  // NOTE: resolves with the final response; rejects only if the socket never opened (caller falls back to POST)
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/api/v1/ws/chat");
+    let opened = false;
+    ws.onopen = () => { opened = true; ws.send(JSON.stringify(body)); };
+    ws.onmessage = e => {
+      const ev = JSON.parse(e.data);
+      if (ev.type === "final") { resolve(ev.response); ws.close(); }
+      else if (ev.type === "error") { resolve({ error: ev.text }); ws.close(); }
+      else onEvent(ev);
+    };
+    ws.onerror = () => { if (!opened) reject(new Error("ws unavailable")); };
+    ws.onclose = () => { if (opened) resolve({ error: "Connection closed. Please try again." }); };
+  });
+}
+
+async function postChat(body) {
+  const r = await fetch("/api/v1/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await r.json();
+  return r.ok ? data : { error: data.detail || "Sorry, something went wrong. Please try again." };
+}
+
 async function ask(text) {
   text = text.trim(); if (!text) return;
   bubble("user", text); q.value = ""; send.disabled = true;
-  const t = bubble("assistant typing", "Searching our pages…");
-  try {
-    const r = await fetch("/api/v1/chat", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text, history }) });
-    const data = await r.json();
-    t.remove();
-    if (!r.ok) throw new Error(data.detail || "error");
-    const extra = document.createElement("div");
-    const s = sourcesEl(data.sources); if (s) extra.appendChild(s);
-    if (data.show_lead_form) extra.appendChild(leadForm(text));
-    bubble("assistant", data.answer, extra);
-    history.push({ role: "user", content: text }, { role: "assistant", content: data.answer });
-    history = history.slice(-20);
-    try { sessionStorage.setItem("history", JSON.stringify(history)); } catch {}
-  } catch (e) {
-    t.remove(); bubble("assistant", typeof e.message === "string" && e.message !== "error" ? e.message : "Sorry, something went wrong. Please try again.");
-  } finally { send.disabled = false; q.focus(); }
+  const b = bubble("assistant typing", "Thinking…");
+  let streamed = "";
+  const onEvent = ev => {
+    if (ev.type === "status" && !streamed) b.textContent = ev.text;
+    if (ev.type === "delta") { streamed += ev.text; b.classList.remove("typing"); b.textContent = streamed; log.scrollTop = log.scrollHeight; }
+    if (ev.type === "reset") { streamed = ""; b.classList.add("typing"); b.textContent = "Double-checking that answer…"; }
+  };
+  const body = { message: text, history };
+  let data;
+  try { data = await streamChat(body, onEvent); } catch { data = await postChat(body).catch(() => ({ error: "Sorry, something went wrong. Please try again." })); }
+  b.remove();
+  if (data.error) { bubble("assistant", data.error); send.disabled = false; q.focus(); return; }
+  const extra = document.createElement("div");
+  const s = sourcesEl(data.sources); if (s) extra.appendChild(s);
+  if (data.show_lead_form) extra.appendChild(leadForm(text));
+  bubble("assistant", data.answer, extra);
+  history.push({ role: "user", content: text }, { role: "assistant", content: data.answer });
+  history = history.slice(-20);
+  try { sessionStorage.setItem("history", JSON.stringify(history)); } catch {}
+  send.disabled = false; q.focus();
 }
 
 send.onclick = () => ask(q.value);

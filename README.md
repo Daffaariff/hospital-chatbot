@@ -19,8 +19,10 @@ question + recent chat history (kept in the browser)
   ├─ 2. Hybrid retrieval (Qdrant, local mode)
   │     dense: BAAI/bge-small-en-v1.5 · sparse: BM25 · fused with Reciprocal Rank Fusion · top 6 chunks
   │
-  ├─ 3. Answer (Claude Opus 5.5, structured output)
-  │     {answerable, answer, cited_ids, medical_topic}: answers only from the chunks, in the user's language
+  ├─ 3. Answer (Claude Opus 5.5, structured output, streamed)
+  │     {answerable, cited_ids, medical_topic, answer}: answers only from the chunks, in the user's language.
+  │     The answer text streams to the browser over a WebSocket one sentence at a time, and each sentence is
+  │     shown only after its numbers are found in the retrieved chunks
   │
   └─ 4. Guards
         · cited chunk ids must be ones we actually retrieved; source links come from chunk metadata
@@ -29,7 +31,8 @@ question + recent chat history (kept in the browser)
           Works across English, Spanish and Arabic, including digits written as words ("three weeks")
         · claim check (Claude Haiku): flags non-numeric claims the cited chunks don't support
           (accreditations, inclusions, therapy names, medical claims)
-        · any failure → one retry with the reason, then "I don't know" + quote form; logged as a content gap
+        · any failure → the streamed text is withdrawn, one retry with the reason, then "I don't know" + quote
+          form; logged as a content gap
         · a short medical disclaimer is added once per conversation when the answer touches treatment
 ```
 
@@ -129,7 +132,8 @@ page cited, intent, and lead form. See `evals/questions.yaml`.
 
 | Method | Path | |
 |---|---|---|
-| POST | `/api/v1/chat` | `{message, history[], channel}` → `{answer, sources[], answered, intent, show_lead_form}` |
+| WS | `/api/v1/ws/chat` | send `{message, history[]}`; receive `status` / `delta` (one sentence) / `reset` (withdraw shown text) events, then `final` with the full response |
+| POST | `/api/v1/chat` | same pipeline, whole answer: `{message, history[], channel}` → `{answer, sources[], answered, intent, show_lead_form}` |
 | POST | `/api/v1/leads` | `{name, email, question}` |
 | POST | `/api/v1/admin/refresh` | re-crawl + rebuild (Bearer API key) |
 | GET | `/api/v1/admin/unanswered` | questions the bot couldn't answer (Bearer API key) |

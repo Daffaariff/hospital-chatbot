@@ -14,10 +14,11 @@ class RouterOut(BaseModel):
 
 
 class AnswerOut(BaseModel):
+    # NOTE: field order is generation order; citations come before the streamed answer text
     answerable: bool = Field(description="True only if the context contains the facts needed to answer")
-    answer: str
     cited_ids: list[str] = Field(description="Ids of the context chunks the answer uses")
     medical_topic: bool = Field(description="True if the answer discusses treatments, risks, eligibility or health outcomes")
+    answer: str
 
 
 class ClaimVerdict(BaseModel):

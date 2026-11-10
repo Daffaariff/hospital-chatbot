@@ -21,6 +21,12 @@ class FakeLLM:
             return ClaimCheck(claims=[ClaimVerdict(claim=x, supported=False) for x in c] + [ClaimVerdict(claim="ok", supported=True)])
         return self.answers.pop(0)
 
+    def stream_structured(self, *, model, system, messages, schema, effort="medium"):
+        self.calls += 1
+        raw = self.answers.pop(0).model_dump_json()
+        for i in range(0, len(raw), 7):
+            yield raw[i:i + 7]
+
 
 class FakeIndex:
     chunks = {PRICE.id: PRICE}
@@ -123,3 +129,25 @@ def test_unsupported_claim_retried_then_accepted():
 def test_claim_check_outage_fails_open():
     ok = AnswerOut(answerable=True, answer="The Out-Patient program costs $18,995.", cited_ids=["P2-C3"], medical_topic=False)
     assert _svc(_route(), [ok], claims=[RuntimeError("api down")]).answer(ChatRequest(message="cost?")).answered
+
+
+def _events(svc, msg):
+    return list(svc.stream(ChatRequest(message=msg)))
+
+
+def test_stream_sends_sentences_then_final():
+    a = AnswerOut(answerable=True, cited_ids=["P2-C3"], medical_topic=False,
+                  answer="The Out-Patient program is 3 weeks. It costs $18,995.")
+    ev = _events(_svc(_route(), [a]), "cost?")
+    deltas = "".join(e["text"] for e in ev if e["type"] == "delta")
+    assert deltas == a.answer and ev[-1]["type"] == "final" and ev[-1]["response"].answered
+
+
+def test_stream_never_shows_invented_number():
+    bad = AnswerOut(answerable=True, cited_ids=["P2-C3"], medical_topic=False,
+                    answer="The program is 3 weeks. It costs $9,999 in total.")
+    ev = _events(_svc(_route(), [bad, bad]), "cost?")
+    shown = "".join(e["text"] for e in ev if e["type"] == "delta")
+    assert "$9,999" not in shown
+    assert any(e["type"] == "reset" for e in ev)  # first sentence was shown, then withdrawn
+    assert not ev[-1]["response"].answered
