@@ -64,7 +64,8 @@ jobs:
             docker compose up -d --build --remove-orphans
             docker image prune -f
             for i in $(seq 1 60); do
-              docker compose exec -T app python -c "import urllib.request as u; u.urlopen('http://localhost:8000/api/v1/health')" && break
+              docker compose exec -T app python -c "import urllib.request as u; u.urlopen('http://localhost:8000/api/v1/health')" >/dev/null 2>&1 && break
+              echo "waiting for app to start ($i)"
               sleep 5
             done
             docker compose exec -T app python -c "import urllib.request as u; print(u.urlopen('http://localhost:8000/api/v1/health').read().decode())"
