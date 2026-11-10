@@ -22,16 +22,21 @@ question + recent chat history (kept in the browser)
   ├─ 3. Answer (Claude Opus 5.5, structured output)
   │     {answerable, answer, cited_ids, medical_topic}: answers only from the chunks, in the user's language
   │
-  └─ 4. Guards (plain Python, not the LLM)
+  └─ 4. Guards
         · cited chunk ids must be ones we actually retrieved; source links come from chunk metadata
-        · every money amount in the answer must appear in the cited chunks (or in the user's own message,
-          so "it is not $50" is allowed). Otherwise retry once with the reason, then fall back to "I don't know"
-        · unanswered questions are logged for content-gap review
+        · code: every money amount and every number with a unit (%, weeks, days, months, years, sessions…)
+          in the answer must appear in the cited chunks or in the user's own message ("it is not $50" is fine).
+          Works across English, Spanish and Arabic, including digits written as words ("three weeks")
+        · claim check (Claude Haiku): flags non-numeric claims the cited chunks don't support
+          (accreditations, inclusions, therapy names, medical claims)
+        · any failure → one retry with the reason, then "I don't know" + quote form; logged as a content gap
         · a short medical disclaimer is added once per conversation when the answer touches treatment
 ```
 
-Why the checks live in code: a price the model invents is caught by code before the user sees it. Prompts alone
-can't promise that.
+Why two layers: numbers are where a wrong answer hurts most, so they are checked in code, which an LLM can't talk its way
+past. The claim check covers everything else. It is a second model, so it can miss things. If it is unavailable the
+request continues (fail open), because numbers and citations are already verified by then. Turn it off with
+`CLAIM_CHECK=false`.
 
 ### Ingestion
 

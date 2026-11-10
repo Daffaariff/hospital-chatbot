@@ -3,9 +3,10 @@ from app.adapters.protocols import LLMPort, LLMRefusal
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.ingest.chunker import Chunk
-from app.prompts.system_prompts import ANSWER_SYSTEM, DISCLAIMER, NOT_FOUND, RETRY_NOTE, ROUTER_SYSTEM, VOICE_STYLE
-from app.schemas.chat import AnswerOut, ChatRequest, ChatResponse, RouterOut, Source
-from app.services.guards import unsupported_amounts, valid_citations
+from app.prompts.system_prompts import (ANSWER_SYSTEM, CLAIM_CHECK_SYSTEM, DISCLAIMER, NOT_FOUND, RETRY_NOTE,
+                                       ROUTER_SYSTEM, VOICE_STYLE)
+from app.schemas.chat import AnswerOut, ChatRequest, ChatResponse, ClaimCheck, RouterOut, Source
+from app.services.guards import unsupported_facts, valid_citations
 from app.services.index import KnowledgeIndex
 from app.services.store import Store
 
@@ -76,7 +77,7 @@ class ChatService:
 
     def _grounded_answer(self, req: ChatRequest, history: list[dict], route: RouterOut,
                          chunks: list[Chunk]) -> tuple[AnswerOut | None, str | None]:
-        """Ask the LLM, verify citations and amounts, retry once with the reason. Returns (answer, problem)."""
+        """Ask the LLM, verify citations, numbers and claims, retry once with the reason. Returns (answer, problem)."""
         if not chunks:
             return None, "no chunks retrieved"
         context = "\n".join(f'<chunk id="{c.id}" page="{c.page_title}" section="{c.heading}">\n{c.text}\n</chunk>' for c in chunks)
@@ -93,18 +94,36 @@ class ChatService:
             except LLMRefusal as e:
                 return None, f"refusal: {e}"
             cited = valid_citations(out.cited_ids, set(by_id))
-            # NOTE: amounts the user typed are allowed so "$50 is not correct" passes the check
-            bad = unsupported_amounts(out.answer, [f"{by_id[i].heading}\n{by_id[i].text}" for i in cited] + [req.message])
+            evidence = [f"{by_id[i].heading}\n{by_id[i].text}" for i in cited]
+            # NOTE: numbers the user typed are allowed so "$50 is not correct" passes the check
+            bad = unsupported_facts(out.answer, evidence + [req.message])
             if not cited and (out.answerable or bad):
                 problem = "no valid chunk ids cited"
             elif bad:
-                problem = f"amounts not found in the cited chunks: {sorted(bad)}"
+                problem = f"numbers not found in the cited chunks: {bad}"
+            elif cited and (claims := self._unsupported_claims(out.answer, evidence)):
+                problem = f"claims not supported by the cited chunks: {claims}"
             else:
                 return out, None
             log.warning(f"guard rejected answer: {problem}")
             messages = [*messages, {"role": "assistant", "content": out.model_dump_json()},
                         {"role": "user", "content": RETRY_NOTE.format(problem=problem)}]
         return out, problem
+
+    def _unsupported_claims(self, answer: str, evidence: list[str]) -> list[str]:
+        """Second opinion from a small model on non-numeric facts (names, inclusions, medical claims)."""
+        if not settings.CLAIM_CHECK:
+            return []
+        sources = "\n".join(f"<source>\n{e}\n</source>" for e in evidence)
+        try:
+            verdict = self.llm.complete_structured(model=settings.CHECK_MODEL, system=CLAIM_CHECK_SYSTEM, schema=ClaimCheck,
+                                                   messages=[{"role": "user", "content": f"<sources>\n{sources}\n</sources>\n<answer>\n{answer}\n</answer>"}],
+                                                   effort="low")
+        except Exception as e:
+            # NOTE: fail open: numbers and citations are already verified in code at this point
+            log.warning(f"claim check unavailable, skipping: {e}")
+            return []
+        return verdict.unsupported_claims
 
     @staticmethod
     def _disclaimer_shown(req: ChatRequest) -> bool:

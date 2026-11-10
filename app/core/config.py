@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = "anthropic"  # anthropic | openai
     ANSWER_MODEL: str = "claude-opus-5-5"
     ROUTER_MODEL: str = "claude-haiku-5-5"
+    CLAIM_CHECK: bool = True
+    CHECK_MODEL: str = "claude-haiku-5-5"
     ANTHROPIC_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     OPENAI_BASE_URL: str = ""

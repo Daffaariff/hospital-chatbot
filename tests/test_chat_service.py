@@ -1,5 +1,5 @@
 from app.ingest.chunker import Chunk
-from app.schemas.chat import AnswerOut, ChatMessage, ChatRequest, RouterOut
+from app.schemas.chat import AnswerOut, ChatMessage, ChatRequest, ClaimCheck, RouterOut
 from app.services.chat_service import ChatService, _alternate
 
 PRICE = Chunk("P2-C3", "https://x/adrenal", "package", "Adrenal Cancer Treatment in Tijuana", "Cost",
@@ -7,12 +7,19 @@ PRICE = Chunk("P2-C3", "https://x/adrenal", "package", "Adrenal Cancer Treatment
 
 
 class FakeLLM:
-    def __init__(self, route, answers):
-        self.route, self.answers, self.calls = route, list(answers), 0
+    def __init__(self, route, answers, claims=()):
+        self.route, self.answers, self.claims, self.calls = route, list(answers), list(claims), 0
 
     def complete_structured(self, *, model, system, messages, schema, effort="medium"):
         self.calls += 1
-        return self.route if schema is RouterOut else self.answers.pop(0)
+        if schema is RouterOut:
+            return self.route
+        if schema is ClaimCheck:
+            c = self.claims.pop(0) if self.claims else []
+            if isinstance(c, Exception):
+                raise c
+            return ClaimCheck(unsupported_claims=c)
+        return self.answers.pop(0)
 
 
 class FakeIndex:
@@ -30,8 +37,8 @@ class FakeStore:
         self.unanswered.append(a)
 
 
-def _svc(route, answers):
-    return ChatService(FakeLLM(route, answers), FakeIndex(), FakeStore())
+def _svc(route, answers, claims=()):
+    return ChatService(FakeLLM(route, answers, claims), FakeIndex(), FakeStore())
 
 
 def _route(intent="price", reply=""):
@@ -97,3 +104,22 @@ def test_not_found_keeps_related_source():
     a = AnswerOut(answerable=False, answer="Our pages don't state a recovery time.", cited_ids=["P2-C3"], medical_topic=False)
     r = _svc(_route("info"), [a]).answer(ChatRequest(message="recovery time?"))
     assert not r.answered and r.sources[0].url == "https://x/adrenal" and r.show_lead_form
+
+
+def test_invented_duration_is_rejected():
+    bad = AnswerOut(answerable=True, answer="It is a 2-week program with an 85% success rate.", cited_ids=["P2-C3"], medical_topic=False)
+    r = _svc(_route(), [bad, bad]).answer(ChatRequest(message="How long is it?"))
+    assert not r.answered and "85%" not in r.answer
+
+
+def test_unsupported_claim_retried_then_accepted():
+    bad = AnswerOut(answerable=True, answer="ITC is JCI accredited and costs $18,995.", cited_ids=["P2-C3"], medical_topic=False)
+    good = AnswerOut(answerable=True, answer="The Out-Patient program costs $18,995.", cited_ids=["P2-C3"], medical_topic=False)
+    svc = _svc(_route(), [bad, good], claims=[["ITC is JCI accredited"], []])
+    r = svc.answer(ChatRequest(message="Tell me about ITC"))
+    assert r.answered and "JCI" not in r.answer and svc.llm.calls == 5
+
+
+def test_claim_check_outage_fails_open():
+    ok = AnswerOut(answerable=True, answer="The Out-Patient program costs $18,995.", cited_ids=["P2-C3"], medical_topic=False)
+    assert _svc(_route(), [ok], claims=[RuntimeError("api down")]).answer(ChatRequest(message="cost?")).answered

@@ -54,6 +54,14 @@ doctor and the clinic's medical team.
 Note: packages here are at ITC Immunity Therapy Center in Tijuana, Mexico. The comparison page covers \
 alternative-medicine clinics in other countries and contains no ITC prices."""
 
+CLAIM_CHECK_SYSTEM = """You verify a website assistant's answer against its <sources>. List every factual claim in \
+the <answer> that the sources do not state or directly imply: prices, numbers, durations, what is included or \
+excluded, clinic/doctor/therapy names, accreditations, locations, medical claims, success or safety claims.
+
+Do NOT list: advice to consult a doctor, suggestions to request a quote or contact PlacidWay, statements that \
+something is not on the pages, disclaimers, greetings, rephrasing of the user's question, or faithful translations \
+and paraphrases of the sources. Judge meaning, not wording. Return an empty list when everything is supported."""
+
 VOICE_STYLE = "\nThis answer will be spoken aloud: 2-4 short sentences, no lists, no markdown, say amounts naturally."
 
 RETRY_NOTE = """Your previous answer was rejected by an automatic check: {problem}

@@ -20,6 +20,10 @@ class AnswerOut(BaseModel):
     medical_topic: bool = Field(description="True if the answer discusses treatments, risks, eligibility or health outcomes")
 
 
+class ClaimCheck(BaseModel):
+    unsupported_claims: list[str] = Field(description="Factual claims in the answer that the sources do not support. Empty if all are supported.")
+
+
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(max_length=4000)
