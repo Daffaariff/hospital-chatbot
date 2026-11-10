@@ -38,8 +38,9 @@ class KnowledgeIndex:
             sparse_vectors_config={"bm25": models.SparseVectorParams(modifier=models.Modifier.IDF)},
         )
         texts = [c.embed_text for c in chunks]
-        dense = list(self.dense.embed(texts))
-        sparse = list(self.sparse.embed(texts))
+        # NOTE: small batches keep peak RAM low on a 2 GB box
+        dense = list(self.dense.embed(texts, batch_size=16))
+        sparse = list(self.sparse.embed(texts, batch_size=16))
         client.upsert(COLLECTION, [
             models.PointStruct(
                 id=i,
