@@ -1,0 +1,153 @@
+# Offline retrieval benchmark: no LLM calls.
+# q: user wording · rewritten: the English query the router would produce (defaults to q)
+# expect: chunks that answer it, as {page: URL fragment, heading: heading fragment}; any match counts as a hit
+- q: How much does alternative adrenal cancer treatment cost in Mexico?
+  expect: [{page: "7902", heading: "Cost of"}]
+- q: What's the price of the adenocarcinoma program?
+  expect: [{page: "7903", heading: "Cost of"}]
+- q: I heard the adenocarcinoma treatment costs $50. Confirm that.
+  rewritten: What is the price of the adenocarcinoma cancer treatment package?
+  expect: [{page: "7903", heading: "Cost of"}]
+- q: anal cancer treatment cost
+  expect: [{page: "7901", heading: "Cost of"}]
+- q: What is included in the anal cancer in-patient package?
+  expect: [{page: "7901", heading: "Included in the In-Patient"}]
+- q: What does the out-patient adrenal program include?
+  expect: [{page: "7902", heading: "Included in the Out-Patient"}]
+- q: Is an ambulance transfer included in the adenocarcinoma package?
+  expect: [{page: "7903", heading: "Excluded"}]
+- q: Are blood transfusions extra for adrenal cancer patients?
+  expect: [{page: "7902", heading: "Excluded"}]
+- q: What optional procedures cost extra for anal cancer?
+  expect: [{page: "7901", heading: "Optional"}]
+- q: What happens each week during the adrenal program?
+  expect: [{page: "7902", heading: "Itinerary"}]
+- q: And what about recovery time?
+  rewritten: What is the recovery time after the in-patient anal cancer program?
+  expect: [{page: "7901", heading: "Itinerary"}, {page: "7901", heading: "Included in the In-Patient"}]
+- q: Why does the adenocarcinoma treatment take three weeks?
+  expect: [{page: "7903", heading: "three weeks"}]
+- q: Can ITC treat metastasized adenocarcinoma?
+  expect: [{page: "7903", heading: "metastasized"}]
+- q: Can I keep taking my hormone therapy during adrenal treatment?
+  expect: [{page: "7902", heading: "hormone therapy"}]
+- q: Can I do the anal cancer treatment if I have a colostomy?
+  expect: [{page: "7901", heading: "colostomy"}]
+- q: Can my husband stay with me during anal cancer treatment?
+  expect: [{page: "7901", heading: "family member"}]
+- q: Is the staff bilingual?
+  expect: [{page: "7903", heading: "bilingual"}, {page: "7902", heading: "English spoken"}, {page: "7901", heading: "English spoken"}]
+- q: Are ITC doctors board-certified?
+  expect: [{page: "7902", heading: "board-certified"}, {page: "7901", heading: "board-certified"}, {page: "profile/5", heading: "Doctors of ITC"}]
+- q: Which tumor markers are monitored for adrenal cancer?
+  expect: [{page: "7902", heading: "tumor markers"}]
+- q: What is intratumoral immunotherapy?
+  expect: [{page: "7901", heading: "Intratumoral"}, {page: "7902", heading: "Intratumoral"}]
+- q: What nutritional support do adenocarcinoma patients get?
+  expect: [{page: "7903", heading: "nutritional"}]
+- q: How much does breast cancer treatment cost at ITC?
+  expect: [{page: "price-list", heading: "Pricings"}, {page: "profile/5", heading: "Cost and Packages"}]
+- q: What does ITC charge for prostate cancer treatment?
+  expect: [{page: "price-list", heading: "Pricings"}, {page: "profile/5", heading: "Cost and Packages"}]
+- q: Which cancer types does ITC treat?
+  expect: [{page: "profile/5", heading: "Cost and Packages"}, {page: "profile/5", heading: "Treatments At Immunity"}]
+- q: Who is eligible for alternative cancer treatment at ITC?
+  expect: [{page: "profile/5", heading: "Eligibility"}, {page: "profile/5", heading: "Who may be eligible"}]
+- q: What are the risks of alternative cancer treatment?
+  expect: [{page: "profile/5", heading: "Risks"}, {page: "profile/5", heading: "What risks"}]
+- q: Is this treatment safe for my diabetes?
+  rewritten: Is alternative cancer treatment at ITC safe for patients with diabetes?
+  expect: [{page: "profile/5", heading: "Risks"}, {page: "profile/5", heading: "Eligibility"}, {page: "7903", heading: "safe"}]
+- q: Can I combine ITC treatment with chemotherapy?
+  expect: [{page: "profile/5", heading: "combined with conventional"}]
+- q: How do I get to Tijuana?
+  expect: [{page: "profile/5", heading: "Getting to Tijuana"}]
+- q: What awards has ITC won?
+  expect: [{page: "profile/5", heading: "Awards"}]
+- q: Who are the doctors at ITC?
+  expect: [{page: "profile/5", heading: "Doctors of ITC"}]
+- q: Do you have videos of patients treated for breast cancer at ITC?
+  expect: [{page: "profile-videos", heading: "videos"}]
+- q: Is there a video about Lyme disease treatment?
+  expect: [{page: "profile-videos", heading: "Chronic Diseases"}]
+- q: Is alternative medicine cheaper in Turkey or Mexico?
+  expect: [{page: "search-medical-pricings", heading: "Which Clinics"}]
+- q: How much is ozone therapy abroad?
+  expect: [{page: "search-medical-pricings", heading: "Which Clinics"}, {page: "search-medical-pricings", heading: "How Much Does"}]
+- q: What is the average cost of alternative medicine abroad?
+  expect: [{page: "search-medical-pricings", heading: "Overview"}, {page: "search-medical-pricings", heading: "How Much Does"}]
+- q: Does health insurance cover alternative medicine abroad?
+  expect: [{page: "search-medical-pricings", heading: "insurance"}]
+- q: What hidden costs should I expect when travelling for treatment?
+  expect: [{page: "search-medical-pricings", heading: "hidden costs"}, {page: "search-medical-pricings", heading: "Not Included"}]
+- q: Which region is cheapest for alternative medicine?
+  expect: [{page: "search-medical-pricings", heading: "cost-effective region"}]
+- q: ¿Cuánto cuesta el programa ambulatorio para el cáncer anal?
+  rewritten: How much does the out-patient program for anal cancer cost?
+  expect: [{page: "7901", heading: "Cost of"}, {page: "7901", heading: "Included in the Out-Patient"}]
+- q: كم تكلفة علاج سرطان الرئة في مركز ITC؟
+  rewritten: How much does lung cancer treatment cost at ITC?
+  expect: [{page: "price-list", heading: "Pricings"}, {page: "profile/5", heading: "Cost and Packages"}]
+- q: ¿El personal habla inglés?
+  rewritten: Does the clinic staff speak English?
+  expect: [{page: "7903", heading: "bilingual"}, {page: "7902", heading: "English spoken"}, {page: "7901", heading: "English spoken"}]
+# --- hard cases: padded rewrites, sibling packages, typos, vague phrasing
+- q: How much is the adenocarcinoma treatment?
+  rewritten: What is the price of the adenocarcinoma cancer package at ITC Immunity Therapy Center in Tijuana, Mexico?
+  hard: true
+  expect: [{page: "7903", heading: "Cost of"}]
+- q: adrenl cancer price
+  hard: true
+  expect: [{page: "7902", heading: "Cost of"}]
+- q: whats in the inpatient one for adrenal
+  rewritten: What is included in the in-patient program for adrenal cancer at ITC Immunity Therapy Center?
+  hard: true
+  expect: [{page: "7902", heading: "Included in the In-Patient"}]
+- q: What extra costs are not covered for adenocarcinoma at ITC?
+  hard: true
+  expect: [{page: "7903", heading: "Excluded"}]
+- q: Is a CT scan included for anal cancer patients?
+  hard: true
+  expect: [{page: "7901", heading: "Included in the"}, {page: "7901", heading: "Excluded"}]
+- q: How much does a specialist consultation cost during adrenal treatment?
+  hard: true
+  expect: [{page: "7902", heading: "Excluded"}]
+- q: How much is it per pint of blood for the anal cancer program?
+  hard: true
+  expect: [{page: "7901", heading: "Excluded"}]
+- q: What does week 2 look like for adenocarcinoma?
+  hard: true
+  expect: [{page: "7903", heading: "Itinerary"}]
+- q: Should I pick out-patient or in-patient for adrenal cancer?
+  hard: true
+  expect: [{page: "7902", heading: "candidate for the Out-Patient"}]
+- q: Is the out-patient adenocarcinoma program ok if I'm tired all the time?
+  hard: true
+  expect: [{page: "7903", heading: "low energy"}]
+- q: Will ITC talk to my oncologist at home about my adenocarcinoma?
+  hard: true
+  expect: [{page: "7903", heading: "oncologist"}]
+- q: Can I bring my own supplements for adrenal support?
+  hard: true
+  expect: [{page: "7902", heading: "supplements"}]
+- q: cheapest ozone therapy clinic
+  rewritten: Which clinic abroad lists the cheapest ozone therapy price?
+  hard: true
+  expect: [{page: "search-medical-pricings", heading: "Which Clinics"}]
+- q: How much does live cell therapy cost in Istanbul?
+  hard: true
+  expect: [{page: "search-medical-pricings", heading: "Which Clinics"}]
+- q: What is usually not included in alternative medicine packages abroad?
+  hard: true
+  expect: [{page: "search-medical-pricings", heading: "Not Included"}]
+- q: Is colorectal cancer treatment the same price as lung cancer at ITC?
+  hard: true
+  expect: [{page: "price-list", heading: "Pricings"}]
+- q: ¿Qué incluye el programa con hospitalización para el cáncer suprarrenal?
+  rewritten: What is included in the in-patient program for adrenal cancer?
+  hard: true
+  expect: [{page: "7902", heading: "Included in the In-Patient"}]
+- q: هل يمكن لأحد أفراد عائلتي مرافقتي أثناء علاج سرطان الشرج؟
+  rewritten: Can a family member accompany me during anal cancer treatment?
+  hard: true
+  expect: [{page: "7901", heading: "family member"}]

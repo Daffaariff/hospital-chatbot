@@ -36,9 +36,7 @@ class FakeLLM:
 
 
 class FakeIndex:
-    chunks = {PRICE.id: PRICE}
-
-    def search(self, *queries, top_k=6):
+    def search(self, *queries, hints=None, top_k=6, rerank=True):
         return [PRICE]
 
 
@@ -113,8 +111,7 @@ def test_price_in_section_heading_counts_as_evidence():
     inpatient = Chunk("P4-C5", "https://x/anal", "package", "Anal Cancer Treatment", "Included in the In-Patient Program ($30,000 USD)",
                       "- 24/7 medical supervision\n- Full room and board")
     svc = _svc(_route("info"), [AnswerOut(answerable=True, answer="The In-Patient program costs $30,000 USD.", cited_ids=["P4-C5"], medical_topic=False)])
-    svc.index.chunks = {inpatient.id: inpatient}
-    svc.index.search = lambda *q, top_k=6: [inpatient]
+    svc.index.search = lambda *q, **kw: [inpatient]
     assert svc.ask(ChatRequest(message="What is in the in-patient package?")).answered
 
 

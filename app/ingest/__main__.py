@@ -32,12 +32,12 @@ def run_ingest(index=None, offline: bool = False) -> dict:
     pages = [parse_page(html, url, t) for t, url, html in htmls]
     chunks = chunk_pages(pages)
     # NOTE: hash the parsed chunks, not raw HTML: raw pages change every request (csrf tokens, timestamps)
-    new = {p.url: hashlib.sha256("\n".join(f"{c.heading}\n{c.text}" for c in chunks if c.url == p.url).encode()).hexdigest()
-           for p in pages}
+    new = {p.url: hashlib.sha256("\n".join(json.dumps(c.to_dict(), sort_keys=True) for c in chunks if c.url == p.url)
+                                 .encode()).hexdigest() for p in pages}
     changed = [u for u in new if old.get(u) != new[u]]
 
     index = index or KnowledgeIndex()
-    if changed or not index.load():
+    if changed or not index.ready():
         index.build(chunks)
     manifest_path.write_text(json.dumps(new, indent=1))
     log.info(f"ingest done: {len(chunks)} chunks, {len(changed)} pages changed")

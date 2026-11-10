@@ -1,96 +1,143 @@
-"""Hybrid (dense + BM25) index on Qdrant local mode, fused with RRF."""
-import json
-import shutil
+"""Hybrid retrieval on Qdrant: dense + BM25, metadata-filtered and unfiltered rankings fused with RRF, then reranked."""
 import threading
+import time
 from pathlib import Path
 
 from fastembed import SparseTextEmbedding, TextEmbedding
+from fastembed.rerank.cross_encoder import TextCrossEncoder
 from qdrant_client import QdrantClient, models
 
 from app.core.config import settings
 from app.core.constants import COLLECTION
 from app.core.logging import get_logger
 from app.ingest.chunker import Chunk
+from app.services.query_hints import QueryHints
 
 log = get_logger("services.index")
+KEYWORD_FIELDS = ("treatment", "section_type", "page_type", "countries")
 
 
 class KnowledgeIndex:
-    def __init__(self, data_dir: Path = settings.DATA_DIR):
-        self.data_dir = data_dir
+    """`COLLECTION` is an alias; each build writes a fresh collection and repoints the alias atomically."""
+
+    def __init__(self, data_dir: Path = settings.DATA_DIR, url: str = settings.QDRANT_URL,
+                 rerank_model: str = settings.RERANK_MODEL):
+        self.url = url
+        self.client = QdrantClient(url=url) if url else QdrantClient(path=str(data_dir / "qdrant"))
         self.dense = TextEmbedding(settings.EMBEDDING_MODEL)
         self.sparse = SparseTextEmbedding(settings.SPARSE_MODEL)
-        self.client: QdrantClient | None = None
-        self.chunks: dict[str, Chunk] = {}
-        # NOTE: local-mode Qdrant isn't documented as thread-safe; searches take milliseconds, so serialise them
+        self.reranker = TextCrossEncoder(rerank_model) if rerank_model else None
+        # NOTE: local-mode Qdrant isn't documented as thread-safe; its calls take milliseconds, so serialise them
         self.lock = threading.RLock()
 
-    @property
-    def _db_path(self) -> Path:
-        return self.data_dir / "qdrant"
+    # --- lifecycle ---------------------------------------------------------------------------------------------
+    def _live_collection(self) -> str | None:
+        aliases = self.client.get_aliases().aliases
+        return next((a.collection_name for a in aliases if a.alias_name == COLLECTION), None)
+
+    def ready(self) -> bool:
+        with self.lock:
+            return self._live_collection() is not None
+
+    def count(self) -> int:
+        with self.lock:
+            return self.client.count(COLLECTION).count if self._live_collection() else 0
 
     def build(self, chunks: list[Chunk]) -> None:
-        """Build into a temp dir, then swap, so a failed rebuild never breaks the live index."""
-        tmp = self.data_dir / "qdrant_tmp"
-        shutil.rmtree(tmp, ignore_errors=True)
-        client = QdrantClient(path=str(tmp))
-        dim = len(next(iter(self.dense.embed(["dim"]))))
-        client.create_collection(
-            COLLECTION,
-            vectors_config={"dense": models.VectorParams(size=dim, distance=models.Distance.COSINE)},
-            sparse_vectors_config={"bm25": models.SparseVectorParams(modifier=models.Modifier.IDF)},
-        )
+        """Embed outside the lock, write a new collection, then swap the alias so searches never see a partial index."""
         texts = [c.embed_text for c in chunks]
         # NOTE: small batches keep peak RAM low on a 2 GB box
         dense = list(self.dense.embed(texts, batch_size=16))
         sparse = list(self.sparse.embed(texts, batch_size=16))
-        client.upsert(COLLECTION, [
-            models.PointStruct(
-                id=i,
-                vector={"dense": d.tolist(), "bm25": models.SparseVector(indices=s.indices.tolist(), values=s.values.tolist())},
-                payload=c.to_dict(),
-            )
-            for i, (c, d, s) in enumerate(zip(chunks, dense, sparse))
-        ])
-        client.close()
-        with self.lock:  # NOTE: no search may run against the old client while it is swapped out
-            if self.client:
-                self.client.close()
-            shutil.rmtree(self._db_path, ignore_errors=True)
-            tmp.rename(self._db_path)
-            (self.data_dir / "chunks.json").write_text(json.dumps([c.to_dict() for c in chunks], indent=1))
-            log.info(f"index built: {len(chunks)} chunks")
-            self.load()
-
-    def load(self) -> bool:
-        if not (self.data_dir / "chunks.json").exists():
-            return False
+        name = f"{COLLECTION}_{time.time_ns()}"
         with self.lock:
-            self.client = QdrantClient(path=str(self._db_path))
-            self.chunks = {c["id"]: Chunk(**c) for c in json.loads((self.data_dir / "chunks.json").read_text())}
-        return True
+            self.client.create_collection(
+                name,
+                vectors_config={"dense": models.VectorParams(size=len(dense[0]), distance=models.Distance.COSINE)},
+                sparse_vectors_config={"bm25": models.SparseVectorParams(modifier=models.Modifier.IDF)},
+            )
+            if self.url:  # NOTE: payload indexes only exist on a Qdrant server; local mode filters by scanning
+                for key in KEYWORD_FIELDS:
+                    self.client.create_payload_index(name, key, models.PayloadSchemaType.KEYWORD)
+                self.client.create_payload_index(name, "has_price", models.PayloadSchemaType.BOOL)
+            self.client.upsert(name, [
+                models.PointStruct(id=i, payload=c.to_dict(), vector={
+                    "dense": d.tolist(),
+                    "bm25": models.SparseVector(indices=s.indices.tolist(), values=s.values.tolist())})
+                for i, (c, d, s) in enumerate(zip(chunks, dense, sparse))
+            ])
+            old = self._live_collection()
+            if old is None and self.client.collection_exists(COLLECTION):
+                self.client.delete_collection(COLLECTION)  # layout before aliases: a plain collection under the name
+            ops = [models.CreateAliasOperation(create_alias=models.CreateAlias(collection_name=name, alias_name=COLLECTION))]
+            if old:
+                ops.insert(0, models.DeleteAliasOperation(delete_alias=models.DeleteAlias(alias_name=COLLECTION)))
+            self.client.update_collection_aliases(change_aliases_operations=ops)
+            for c in self.client.get_collections().collections:
+                if c.name.startswith(f"{COLLECTION}_") and c.name != name:
+                    self.client.delete_collection(c.name)  # the previous build and any left by a failed one
+        log.info(f"index built: {len(chunks)} chunks in {name}")
 
-    def search(self, *queries: str, top_k: int = settings.TOP_K) -> list[Chunk]:
-        """Hybrid search; several phrasings of one question are fused into a single RRF ranking."""
-        prefetch = []
-        for q in dict.fromkeys(q for q in queries if q):
+    # --- search ------------------------------------------------------------------------------------------------
+    def _prefetch(self, queries: list[str], limit: int, flt: models.Filter | None) -> list[models.Prefetch]:
+        out = []
+        for q in queries:
             d = next(iter(self.dense.query_embed(q)))
             s = next(iter(self.sparse.query_embed(q)))
-            prefetch += [
-                models.Prefetch(query=d.tolist(), using="dense", limit=top_k * 3),
+            out += [
+                models.Prefetch(query=d.tolist(), using="dense", limit=limit, filter=flt),
                 models.Prefetch(query=models.SparseVector(indices=s.indices.tolist(), values=s.values.tolist()),
-                                using="bm25", limit=top_k * 3),
+                                using="bm25", limit=limit, filter=flt),
             ]
+        return out
+
+    @staticmethod
+    def _filters(hints: QueryHints) -> list[models.Filter]:
+        """Narrow rankings that get fused with the unfiltered one, so a wrong hint can boost but never hide."""
+        def cond(key, value):
+            return models.FieldCondition(key=key, match=models.MatchValue(value=value))
+        out = []
+        if hints.treatment and hints.section:
+            out.append(models.Filter(must=[cond("treatment", hints.treatment), cond("section_type", hints.section)]))
+        if hints.treatment:
+            out.append(models.Filter(must=[cond("treatment", hints.treatment)]))
+        elif hints.section:
+            out.append(models.Filter(must=[cond("section_type", hints.section)]))
+        return out
+
+    def search(self, *queries: str, hints: QueryHints | None = None, top_k: int = settings.TOP_K,
+               rerank: bool = True) -> list[Chunk]:
+        """queries[0] is the main (router-rewritten) query; others are extra phrasings fused into the same ranking."""
+        queries = list(dict.fromkeys(q for q in queries if q))
+        use_rerank = rerank and self.reranker is not None
+        pool = settings.RERANK_CANDIDATES if use_rerank else top_k
+        prefetch = self._prefetch(queries, pool, None)
+        for flt in self._filters(hints) if hints and settings.METADATA_FILTERS else []:
+            prefetch += self._prefetch(queries, pool, flt)
         with self.lock:
             res = self.client.query_points(COLLECTION, prefetch=prefetch,
-                                           query=models.FusionQuery(fusion=models.Fusion.RRF), limit=top_k)
-        return [self.chunks[p.payload["id"]] for p in res.points]
+                                           query=models.FusionQuery(fusion=models.Fusion.RRF), limit=pool)
+        chunks = [Chunk(**p.payload) for p in res.points]
+        if not use_rerank or len(chunks) <= 1:
+            return chunks[:top_k]
+        return self._blend_rerank(queries[0], chunks)[:top_k]
+
+    def _blend_rerank(self, query: str, chunks: list[Chunk], k: int = 10) -> list[Chunk]:
+        """RRF of the fused (filter-aware) rank and the cross-encoder rank, so the reranker can't erase filter gains."""
+        scores = list(self.reranker.rerank(query, [c.embed_text for c in chunks]))
+        by_score = sorted(range(len(chunks)), key=lambda i: -scores[i])
+        rerank_rank = {i: r for r, i in enumerate(by_score, 1)}
+        blended = sorted(range(len(chunks)), key=lambda i: -(1 / (k + i + 1) + 1 / (k + rerank_rank[i])))
+        return [chunks[i] for i in blended]
+
 
 if __name__ == "__main__":
+    from app.services.query_hints import analyze
+
     idx = KnowledgeIndex()
-    assert idx.load(), "run `python -m app.ingest` first"
+    assert idx.ready(), "run `python -m app.ingest --offline` first"
     for q in ["How much does adrenal cancer treatment cost in Mexico?", "Is alternative medicine cheaper in Turkey or Mexico?",
-              "What is included in the anal cancer in-patient package?", "recovery time after treatment", "Do you have patient videos?"]:
-        print(f"\n> {q}")
-        for c in idx.search(q):
-            print(f"   {c.id:7} {c.page_title[:40]:40} | {c.heading[:60]}")
+              "What is included in the anal cancer in-patient package?", "recovery time after treatment"]:
+        print(f"\n> {q}  {analyze(q)}")
+        for c in idx.search(q, hints=analyze(q)):
+            print(f"   {c.id:7} {c.treatment:14} {c.section_type:13} | {c.heading[:55]}")

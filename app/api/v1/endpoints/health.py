@@ -8,5 +8,5 @@ router = APIRouter()
 
 @router.get("/health")
 def health(request: Request) -> dict:
-    return {"status": "ok", "chunks": len(request.app.state.index.chunks), "llm": settings.LLM_PROVIDER,
+    return {"status": "ok", "chunks": request.app.state.index.count(), "llm": settings.LLM_PROVIDER,
             "answer_model": settings.ANSWER_MODEL}

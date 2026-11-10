@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
     SPARSE_MODEL: str = "Qdrant/bm25"
     TOP_K: int = 6
+    QDRANT_URL: str = ""  # empty = embedded local mode under DATA_DIR/qdrant
+    METADATA_FILTERS: bool = True
+    RERANK_MODEL: str = "jinaai/jina-reranker-v1-turbo-en"  # empty disables reranking
+    RERANK_CANDIDATES: int = 20
     HISTORY_TURNS: int = 6
 
     USER_AGENT: str = "PlacidWayKnowledgeBot/0.1 (+https://github.com/Daffaariff/hospital-chatbot)"

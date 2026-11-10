@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
     store = Store()
     app.state.index, app.state.store = index, store
     app.state.chat = ChatService(get_llm(), index, store)
-    log.info(f"ready: {len(index.chunks)} chunks, llm={settings.LLM_PROVIDER}")
+    log.info(f"ready: {index.count()} chunks, llm={settings.LLM_PROVIDER}")
     yield
 
 

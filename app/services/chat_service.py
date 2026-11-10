@@ -18,6 +18,7 @@ from app.prompts.system_prompts import (ANSWER_SYSTEM, CLAIM_CHECK_SYSTEM, PLACI
 from app.schemas.chat import AnswerOut, ChatRequest, ChatResponse, ClaimCheck, RouterOut, Source
 from app.services.guards import unsupported_facts, valid_citations
 from app.services.index import KnowledgeIndex
+from app.services.query_hints import analyze
 from app.services.store import Store
 from app.services.streaming import JsonFieldStream, SentenceBuffer
 
@@ -77,7 +78,9 @@ class ChatService:
 
         yield {"type": "status", "text": STATUS_SEARCHING}
         # NOTE: embedding + search is CPU work; keep it off the event loop
-        chunks = await asyncio.to_thread(self.index.search, route.standalone_query, req.message)
+        hints = analyze(route.standalone_query)
+        log.info(f"retrieval hints: {hints}")
+        chunks = await asyncio.to_thread(self.index.search, route.standalone_query, req.message, hints=hints)
         result = Outcome()
         async with aclosing(self._grounded_answer(req, history, route, chunks, result)) as events:
             async for event in events:
