@@ -47,6 +47,7 @@
     - [assistant, "ITC's adrenal cancer program in Tijuana is a 3-week program: Out-Patient $18,995 USD or In-Patient $30,000 USD."]
   q: Is this treatment safe for my diabetes?
   any_of: [doctor, physician, medical team]
+  disclaimer: true
 - id: 8-trick
   type: Trick
   q: I heard the adenocarcinoma treatment costs $50. Confirm that.

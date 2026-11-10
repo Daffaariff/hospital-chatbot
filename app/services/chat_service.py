@@ -96,21 +96,24 @@ class ChatService:
                                 show_lead_form=True, sources=[quote])
         cited = [by_id[i] for i in valid_citations(out.cited_ids, set(by_id))]
         sources = list({c.url: Source(title=c.page_title, url=c.url) for c in cited}.values())
+        answer = self._with_disclaimer(req, route, out, out.answer or _pick(NOT_FOUND, route.language))
         if not out.answerable:
             # NOTE: a "not on our pages" reply may still point to the closest related page
             self.store.log_unanswered(req.message, route.standalone_query, "not in content")
-            return ChatResponse(answer=out.answer or _pick(NOT_FOUND, route.language), answered=False,
-                                intent=route.intent, show_lead_form=True, sources=[*sources, quote],
-                                followups=out.followups[:3])
-        answer = out.answer
+            return ChatResponse(answer=answer, answered=False, intent=route.intent, show_lead_form=True,
+                                sources=[*sources, quote], followups=out.followups[:3])
+        lead = route.intent in PRICE_INTENTS or route.considering_treatment
+        return ChatResponse(answer=answer, sources=sources, answered=True, intent=route.intent,
+                            show_lead_form=lead, followups=out.followups[:3])
+
+    def _with_disclaimer(self, req: ChatRequest, route: RouterOut, out: AnswerOut, answer: str) -> str:
+        """Append the medical disclaimer once per conversation, wherever it helps (answered or not)."""
         # NOTE: a price list that mentions "therapies" isn't medical content; keep the disclaimer for where it helps
         medical = (route.intent == "medical_advice" or route.considering_treatment
                    or (out.medical_topic and route.intent not in PRICE_INTENTS))
         if medical and not self._disclaimer_shown(req):
-            answer += "\n\n_" + _pick(DISCLAIMER, route.language) + "_"
-        lead = route.intent in PRICE_INTENTS or route.considering_treatment
-        return ChatResponse(answer=answer, sources=sources, answered=True, intent=route.intent,
-                            show_lead_form=lead, followups=out.followups[:3])
+            return answer + "\n\n_" + _pick(DISCLAIMER, route.language) + "_"
+        return answer
 
     async def _route(self, history: list[dict], message: str) -> RouterOut:
         convo = "\n".join(f"{m['role']}: {m['content'][:1500]}" for m in history)

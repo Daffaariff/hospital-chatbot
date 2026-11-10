@@ -208,3 +208,10 @@ def test_no_disclaimer_on_plain_price_answer():
     a = AnswerOut(followups=[], answerable=True, cited_ids=["P2-C3"], medical_topic=True, answer="It costs $18,995 for 3 weeks.")
     assert "not medical advice" not in _svc(_route("price"), [a]).ask(ChatRequest(message="price?")).answer
     assert "not medical advice" in _svc(_route("price", considering=True), [a]).ask(ChatRequest(message="my dad needs it, price?")).answer
+
+
+def test_disclaimer_also_on_partly_answered_medical_question():
+    a = AnswerOut(followups=[], answerable=False, cited_ids=["P2-C3"], medical_topic=True,
+                  answer="The page doesn't address diabetes; please ask your doctor.")
+    r = _svc(_route("medical_advice"), [a]).ask(ChatRequest(message="Is this safe for my diabetes?"))
+    assert not r.answered and "not medical advice" in r.answer
