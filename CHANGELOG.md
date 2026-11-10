@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.4.1...v0.5.0) (2026-11-10)
+
+
+### Features
+
+* support OpenRouter models without JSON-schema output and rewrite answer prompt ([6f72812](https://github.com/Daffaariff/hospital-chatbot/commit/6f72812c47e61c80d129638d63320da070d91cce))
+
 ## [0.4.1](https://github.com/Daffaariff/hospital-chatbot/compare/v0.4.0...v0.4.1) (2026-11-10)
 
 
