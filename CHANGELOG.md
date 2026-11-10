@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/Daffaariff/hospital-chatbot/compare/v0.5.1...v0.5.2) (2026-11-10)
+
+
+### Bug Fixes
+
+* claim check sees full retrieved context; async parallel evals; lock index access ([2ded23d](https://github.com/Daffaariff/hospital-chatbot/commit/2ded23d88b77ada198b3591844a37eef431e8ed8))
+
 ## [0.5.1](https://github.com/Daffaariff/hospital-chatbot/compare/v0.5.0...v0.5.1) (2026-11-10)
 
 
