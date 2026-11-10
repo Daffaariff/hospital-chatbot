@@ -103,7 +103,10 @@ class ChatService:
                                 intent=route.intent, show_lead_form=True, sources=[*sources, quote],
                                 followups=out.followups[:3])
         answer = out.answer
-        if (out.medical_topic or route.intent == "medical_advice") and not self._disclaimer_shown(req):
+        # NOTE: a price list that mentions "therapies" isn't medical content; keep the disclaimer for where it helps
+        medical = (route.intent == "medical_advice" or route.considering_treatment
+                   or (out.medical_topic and route.intent not in PRICE_INTENTS))
+        if medical and not self._disclaimer_shown(req):
             answer += "\n\n_" + _pick(DISCLAIMER, route.language) + "_"
         lead = route.intent in PRICE_INTENTS or route.considering_treatment
         return ChatResponse(answer=answer, sources=sources, answered=True, intent=route.intent,

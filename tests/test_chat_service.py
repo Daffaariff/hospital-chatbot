@@ -202,3 +202,9 @@ def test_lead_form_for_someone_considering_treatment():
     a = AnswerOut(followups=[], answerable=True, cited_ids=["P2-C3"], medical_topic=True, answer="ITC treats adrenal cancer.")
     assert _svc(_route("info", considering=True), [a]).ask(ChatRequest(message="my dad has adrenal cancer")).show_lead_form
     assert not _svc(_route("info"), [a]).ask(ChatRequest(message="what therapies?")).show_lead_form
+
+
+def test_no_disclaimer_on_plain_price_answer():
+    a = AnswerOut(followups=[], answerable=True, cited_ids=["P2-C3"], medical_topic=True, answer="It costs $18,995 for 3 weeks.")
+    assert "not medical advice" not in _svc(_route("price"), [a]).ask(ChatRequest(message="price?")).answer
+    assert "not medical advice" in _svc(_route("price", considering=True), [a]).ask(ChatRequest(message="my dad needs it, price?")).answer
