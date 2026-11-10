@@ -112,11 +112,19 @@ python -m app.ingest            # crawl the 7 pages (~25s at 3s per page) and bu
 python runner.py --reload       # http://localhost:8000
 ```
 
-Using OpenAI or OpenRouter instead of Claude only takes env changes:
+Switching to OpenAI or OpenRouter only takes env changes (presets in `.env.example`):
 
 ```bash
-LLM_PROVIDER=openai OPENAI_API_KEY=... ANSWER_MODEL=gpt-4.1 ROUTER_MODEL=gpt-4.1-mini python runner.py
+# OpenAI
+LLM_PROVIDER=openai OPENAI_API_KEY=... ANSWER_MODEL=gpt-5 ROUTER_MODEL=gpt-5-mini CHECK_MODEL=gpt-5-mini
+# OpenRouter: any hosted model
+LLM_PROVIDER=openai OPENAI_BASE_URL=https://openrouter.ai/api/v1 OPENAI_API_KEY=... ANSWER_MODEL=openai/gpt-5 ...
+# model without JSON-schema output support: plain JSON mode, schema goes in the prompt
+OPENAI_JSON_MODE=object
 ```
+
+The OpenAI adapter streams too, and model output wrapped in prose or ``` fences is tolerated. Startup refuses
+`LLM_PROVIDER=openai` with Claude model ids, so a misconfiguration fails at boot instead of on the first question.
 
 ## Tests and evals
 

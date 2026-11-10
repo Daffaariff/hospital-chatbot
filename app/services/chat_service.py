@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.ingest.chunker import Chunk
 from app.core.constants import LEAD_INTENTS, NO_RETRIEVAL_INTENTS, PRICE_INTENTS
+from app.helpers.json_text import extract_json
 from app.core.messages import DISCLAIMER, NOT_FOUND, SOURCE_CONTACT, SOURCE_QUOTE, STATUS_CHECKING, STATUS_SEARCHING
 from app.prompts.system_prompts import (ANSWER_SYSTEM, CLAIM_CHECK_SYSTEM, PLACIDWAY_FACTS, RETRY_NOTE, ROUTER_SYSTEM,
                                        VOICE_STYLE)
@@ -140,7 +141,7 @@ class ChatService:
                         yield {"type": "delta", "text": piece}
             if not problem:
                 try:
-                    out = AnswerOut.model_validate_json(raw)
+                    out = AnswerOut.model_validate_json(extract_json(raw))
                 except ValidationError:
                     problem = "model output was not valid JSON"
             if not problem:

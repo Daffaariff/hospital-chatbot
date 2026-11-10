@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     OPENAI_BASE_URL: str = ""
+    OPENAI_JSON_MODE: str = "schema"  # schema | object (for models without JSON-schema support)
     LLM_TIMEOUT: float = 60.0
     LLM_MAX_RETRIES: int = 2
 

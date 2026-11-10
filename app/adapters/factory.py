@@ -11,6 +11,10 @@ def get_llm() -> LLMPort:
         from app.adapters.anthropic_adapter import AnthropicAdapter
         return AnthropicAdapter()
     if settings.LLM_PROVIDER == "openai":
+        claude = [m for m in (settings.ANSWER_MODEL, settings.ROUTER_MODEL, settings.CHECK_MODEL) if m.startswith("claude-")]
+        if claude and not settings.OPENAI_BASE_URL:
+            raise ValueError(f"LLM_PROVIDER=openai but {claude} are Claude model ids: set ANSWER_MODEL, ROUTER_MODEL and "
+                             "CHECK_MODEL to OpenAI models (see .env.example)")
         from app.adapters.openai_adapter import OpenAIAdapter
         return OpenAIAdapter()
     raise ValueError(f"unknown LLM_PROVIDER: {settings.LLM_PROVIDER}")
