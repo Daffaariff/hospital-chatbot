@@ -1,0 +1,53 @@
+name: release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  deploy:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements-dev.txt && pytest
+      - uses: appleboy/ssh-action@v1
+        env:
+          REF: ${{ needs.release-please.outputs.tag_name || 'origin/main' }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: REF
+          script: |
+            set -e
+            cd ~/hospital-chatbot
+            git fetch --tags --force origin
+            git checkout --force "$REF"
+            docker compose up -d --build --remove-orphans
+            docker image prune -f
+            for i in $(seq 1 60); do
+              docker compose exec -T app python -c "import urllib.request as u; u.urlopen('http://localhost:8000/api/v1/health')" && break
+              sleep 5
+            done
+            docker compose exec -T app python -c "import urllib.request as u; print(u.urlopen('http://localhost:8000/api/v1/health').read().decode())"
+            docker compose ps
