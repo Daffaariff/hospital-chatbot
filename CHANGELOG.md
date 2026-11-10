@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/Daffaariff/hospital-chatbot/compare/v0.7.0...v0.7.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* name the comparison baseline instead of answering yes for the user's country ([c3b8d93](https://github.com/Daffaariff/hospital-chatbot/commit/c3b8d935185c1e754c1da8c4a012bbd7ea563d70))
+
 ## [0.7.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.6.6...v0.7.0) (2026-11-10)
 
 
