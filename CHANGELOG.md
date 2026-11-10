@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.8.0...v0.9.0) (2026-11-10)
+
+
+### Features
+
+* new chat button that clears the conversation ([3f1df18](https://github.com/Daffaariff/hospital-chatbot/commit/3f1df187b8367c69471ff1f79636526d8a0384a0))
+* new chat button that clears the conversation ([3db6341](https://github.com/Daffaariff/hospital-chatbot/commit/3db634164c361c5fa80ee199e4fbe646c03a9755))
+
 ## [0.8.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.7.1...v0.8.0) (2026-11-10)
 
 
