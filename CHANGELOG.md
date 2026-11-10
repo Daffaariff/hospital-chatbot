@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/Daffaariff/hospital-chatbot/compare/v0.6.1...v0.6.2) (2026-11-10)
+
+
+### Bug Fixes
+
+* short answers for short questions, program tiers for price questions, quote form for prospective patients ([7886fcf](https://github.com/Daffaariff/hospital-chatbot/commit/7886fcf7e87254fbe0b67ecce910cd50eddd213b))
+
 ## [0.6.1](https://github.com/Daffaariff/hospital-chatbot/compare/v0.6.0...v0.6.1) (2026-11-10)
 
 
