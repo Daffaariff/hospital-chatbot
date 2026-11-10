@@ -1,0 +1,8 @@
+{$DOMAIN} {
+	encode gzip
+	# NOTE: hold requests while the app container restarts on deploy instead of returning 502
+	reverse_proxy app:8000 {
+		lb_try_duration 60s
+		lb_try_interval 1s
+	}
+}
