@@ -172,6 +172,10 @@ python evals/run_eval.py --url http://localhost:8000   # 28 questions (incl. laz
 python evals/retrieval_eval.py -v                      # retrieval recall/MRR ablation, offline
 ```
 
+For iterating without API spend, `LLM_PROVIDER=claude_code` routes every LLM call through the local `claude` CLI
+(Claude Code, on the developer's own subscription, with its tools, MCP servers and plugins switched off). It's for
+local testing only; production uses the API.
+
 The eval checks are rules, not an LLM judge: required amounts present, forbidden amounts absent, the expected source
 page cited, intent, and lead form. See `evals/questions.yaml`.
 

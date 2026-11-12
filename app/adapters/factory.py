@@ -22,4 +22,7 @@ def _provider() -> LLMPort:
                              "CHECK_MODEL to OpenAI models (see .env.example)")
         from app.adapters.openai_adapter import OpenAIAdapter
         return OpenAIAdapter()
+    if settings.LLM_PROVIDER == "claude_code":
+        from app.adapters.claude_code_adapter import ClaudeCodeAdapter
+        return ClaudeCodeAdapter()
     raise ValueError(f"unknown LLM_PROVIDER: {settings.LLM_PROVIDER}")

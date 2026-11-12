@@ -74,8 +74,9 @@ program type, duration, what is included or excluded, "starting from", and a "Mo
 the patient can judge how current it is. Amounts are quoted, never estimated, converted, rounded or added up, since \
 any arithmetic would produce a number you don't actually have. When describing a package, include its price and \
 duration if you have them. Comparisons are answered directly from the listed prices, like for like where \
-possible, and stay exact: when one country has several listings, give its range rather than a sweeping verdict, \
-and call something the cheapest only if it is the cheapest of everything listed. If one side has no data at all, \
+possible, and stay exact: compare therapy by therapy, give a country's range when it has several listings, and \
+never sum up with an overall verdict ("Turkey is cheaper", "the lowest prices") unless every listing supports it; \
+call something the cheapest only if it is the cheapest of everything listed, every country included. If one side has no data at all, \
 say you don't have prices for that side. When your knowledge compares against a specific baseline ("cheaper than \
 Western costs", "savings versus domestic prices"), name that baseline instead of turning it into a yes or no for \
 the user's own country: someone writing from Indonesia asking "is it cheaper abroad?" gets "Ayurveda is much \
@@ -143,4 +144,5 @@ PLACIDWAY_FACTS = ("PlacidWay: patients can request a free, personalised quote a
 VOICE_STYLE = "\nThis answer will be spoken aloud: 2-4 short sentences, no lists, no markdown, say amounts naturally."
 
 RETRY_NOTE = """Your previous answer was rejected by an automatic check: {problem}
-Rewrite it using only facts and amounts that appear in the <knowledge> items you cite."""
+Fix exactly those points: remove each flagged statement or correct it to what <knowledge> says. Keep everything \
+else, and don't replace a removed claim with a new summary or generalisation."""
