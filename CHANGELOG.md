@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/Daffaariff/hospital-chatbot/compare/v0.9.0...v0.9.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* per-therapy comparisons and targeted retries; add claude_code dev provider ([aca3063](https://github.com/Daffaariff/hospital-chatbot/commit/aca3063df930ca966d1d521b1d1d8a82cce0fc59))
+
 ## [0.9.0](https://github.com/Daffaariff/hospital-chatbot/compare/v0.8.0...v0.9.0) (2026-11-10)
 
 
